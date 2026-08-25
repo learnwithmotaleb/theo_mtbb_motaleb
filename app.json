@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "Air Menage",
+    "slug": "theo_mtbb",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon1.png",
+    "scheme": "theomtbb",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.delwarhosen.theomtbb"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/icon1.png",
+        "backgroundImage": "./assets/images/icon1.png",
+        "monochromeImage": "./assets/images/icon1.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "pan",
+      "package": "com.delwarhosen.theo_mtbb"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/icon1.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FAFAFA",
+          "android": {
+            "image": "./assets/images/homeLogo.png",
+            "imageWidth": 76
+          }
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow app to access your camera."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
