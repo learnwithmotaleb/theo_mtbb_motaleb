@@ -1,26 +1,25 @@
 {
   "expo": {
-    "name": "Air Menage",
+    "name": "Gestlio",
     "slug": "theo_mtbb",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon1.png",
     "scheme": "theomtbb",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/images/icon1.png",
     "ios": {
-      "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.delwarhosen.theomtbb"
+      "icon": "./assets/images/icon1.png",
+      "bundleIdentifier": "com.gestlio.app"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/icon1.png",
-        "backgroundImage": "./assets/images/icon1.png",
-        "monochromeImage": "./assets/images/icon1.png"
-      },
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
-      "package": "com.delwarhosen.theo_mtbb"
+      "package": "com.gestlio.app",
+      "icon": "./assets/images/icon1.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon1.png",
+        "backgroundColor": "#F5F5F5"
+      }
     },
     "web": {
       "output": "static",
@@ -40,6 +39,7 @@
       ],
       "expo-font",
       "expo-image",
+      "expo-web-browser",
       [
         "expo-image-picker",
         {
@@ -50,6 +50,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "09dd4d71-33a9-43fb-b494-e55e3e0c1cc7"
+      }
     }
   }
 }
