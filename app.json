@@ -1,17 +1,20 @@
 {
   "expo": {
     "name": "Gestlio",
-    "slug": "theo_mtbb",
+    "slug": "gestlio",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "theomtbb",
+    "scheme": "gestlio",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/images/icon1.png",
+
     "ios": {
       "icon": "./assets/images/icon1.png",
       "bundleIdentifier": "com.gestlio.app"
     },
+
     "android": {
+      "versionCode": 4,
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
       "package": "com.gestlio.app",
@@ -21,10 +24,12 @@
         "backgroundColor": "#F5F5F5"
       }
     },
+
     "web": {
       "output": "static",
       "favicon": "./assets/images/icon1.png"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -43,19 +48,23 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Allow app to access your camera."
+          "cameraPermission": "Allow Gestlio to access your camera."
         }
       ]
     ],
+
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
+
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "09dd4d71-33a9-43fb-b494-e55e3e0c1cc7"
+        "projectId": "919ad7dc-8643-49c6-94b7-94fff56214ba"
       }
-    }
+    },
+
+    "owner": "learnwithmotaleb"
   }
 }
