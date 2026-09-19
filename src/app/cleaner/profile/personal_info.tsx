@@ -7,7 +7,6 @@ import { Colors } from '@/constants/theme';
 // import { useRouter } from 'expo-router';
 import { EditPenIcon } from '@/assets/icons/common_icon/EditPenIcon';
 import { CameraIcon } from '@/assets/icons/host_icon/CameraIcon';
-import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { EditableField, useProfileEditor } from '@/hooks/useProfileEditor';
 import { imageSource, personName } from '@/lib/mappers';
 import { AppImage } from '@/components/shared/AppImage';
@@ -105,7 +104,7 @@ export default function PersonalInformationScreen() {
                     <View style={infoStyles.avatarWrapper}>
                         <View style={[infoStyles.avatar, { backgroundColor: Colors.BORDER_COLOR }]} >
                             <AppImage
-                                source={imageSource(me?.profileImage, IMAGE_COMPONENTS.cleanerPP)}
+                                source={imageSource(me?.profileImage, null)}
                                 style={{ height: 80, width: 80 }}
                                 contentFit="cover"
                             />

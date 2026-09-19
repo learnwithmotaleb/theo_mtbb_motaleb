@@ -33,9 +33,11 @@ export const imageSource = (path?: string | null, fallback: any = IMAGE_COMPONEN
   return url ? { uri: url } : fallback;
 };
 
+// No stock photo here: an unset avatar should render AppImage's neutral grey
+// placeholder rather than a picture of a stranger.
 export const avatarSource = (
   path?: string | null,
-  fallback: any = IMAGE_COMPONENTS.cleanerPP,
+  fallback: any = null,
 ) => imageSource(path, fallback);
 
 export const hostAvatarSource = (person?: any) => {
@@ -46,7 +48,7 @@ export const hostAvatarSource = (person?: any) => {
     person?.image ??
     person?.profilePicture ??
     person?.user?.profileImage;
-  return imageSource(path, IMAGE_COMPONENTS.hostProfile);
+  return imageSource(path, null);
 };
 
 export const cleanerAvatarSource = (person?: any) => {
@@ -57,7 +59,7 @@ export const cleanerAvatarSource = (person?: any) => {
     person?.image ??
     person?.profilePicture ??
     person?.user?.profileImage;
-  return imageSource(path, IMAGE_COMPONENTS.cleanerPP);
+  return imageSource(path, null);
 };
 
 /** The backend sends firstName/lastName, or a pre-joined `name`. */

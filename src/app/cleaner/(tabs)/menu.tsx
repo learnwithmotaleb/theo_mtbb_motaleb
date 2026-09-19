@@ -14,7 +14,6 @@ import { PrivacyPolicyIcon } from '@/assets/icons/host_icon/PrivecyPolicyIcon';
 import { TermsUsesIcon } from '@/assets/icons/host_icon/TermsUsesIcon';
 import { Body5, Body6, Caption1, Caption3, Caption5 } from '@/components/typo/Typography';
 import { showToast } from '@/components/shared/Toast';
-import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
 import { useSignOut } from '@/hooks/useSession';
 import { getApiErrorMessage } from '@/lib/apiError';
@@ -93,7 +92,7 @@ export default function CleanerMenuScreen() {
                 >
                     <View style={[styles.avatar, styles.avatarPlaceholder]}>
                         <AppImage
-                            source={imageSource(me?.profileImage, IMAGE_COMPONENTS.cleanerPP)}
+                            source={imageSource(me?.profileImage, null)}
                             style={{ height: 60, width: 60 }}
                             contentFit="cover"
                         />
@@ -109,14 +108,16 @@ export default function CleanerMenuScreen() {
 
                 {/* Availability toggle — card style */}
                 <View style={styles.availRow}>
-                    <Body6 color={Colors.TEXT_COLOR}>{t("Available for new request")}</Body6>
-                    <Switch
-                        value={isAvailable}
-                        onValueChange={handleAvailabilityChange}
-                        trackColor={{ false: Colors.BORDER_COLOR, true: Colors.COLOR_ACTIVE }}
-                        thumbColor="#fff"
-                        ios_backgroundColor={Colors.BORDER_COLOR}
-                    />
+                    <Body6 color={Colors.TEXT_COLOR} style={styles.availLabel}>{t("Available for new request")}</Body6>
+                    <View style={styles.availSwitch}>
+                        <Switch
+                            value={isAvailable}
+                            onValueChange={handleAvailabilityChange}
+                            trackColor={{ false: Colors.BORDER_COLOR, true: Colors.COLOR_ACTIVE }}
+                            thumbColor="#fff"
+                            ios_backgroundColor={Colors.BORDER_COLOR}
+                        />
+                    </View>
                 </View>
 
                 {/* Sections */}
@@ -208,6 +209,13 @@ const styles = StyleSheet.create({
         // borderWidth: 1,
         // borderColor: Colors.BORDER_COLOR,
         marginBottom: hp(16),
+    },
+    availLabel: {
+        flex: 1,
+        marginRight: wp(8),
+    },
+    availSwitch: {
+        flexShrink: 0,
     },
 
     // ── Section ───────────────────────────────────────────────────────────────

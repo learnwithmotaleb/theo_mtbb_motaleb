@@ -13,7 +13,6 @@ import { PrivacyPolicyIcon } from '@/assets/icons/host_icon/PrivecyPolicyIcon';
 import { TermsUsesIcon } from '@/assets/icons/host_icon/TermsUsesIcon';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { Body6, Caption1, Caption3, H3 } from '@/components/typo/Typography';
-import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
 import { useSignOut } from '@/hooks/useSession';
 import { imageSource, personName } from '@/lib/mappers';
@@ -62,7 +61,7 @@ export default function HostMenuScreen() {
                 {/* Avatar */}
                 <View style={styles.profileHeader}>
                     <AppImage
-                        source={imageSource(me?.profileImage, IMAGE_COMPONENTS.hostProfile)}
+                        source={imageSource(me?.profileImage, null)}
                         contentFit='cover'
                         style={styles.avatar}
                     />
