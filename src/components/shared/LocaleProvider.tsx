@@ -46,7 +46,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     setActiveLocale(locale);
 
     // Holding the tree back until the stored choice is known avoids a flash of
-    // the device language before the user's own choice loads.
+    // the default language before the user's own choice loads.
     if (!ready && !isHydrated) return null;
 
     return <>{children}</>;

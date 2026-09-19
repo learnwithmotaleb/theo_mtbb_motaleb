@@ -74,11 +74,16 @@ export const authApi = baseApi.injectEndpoints({
 
     // ── Sign in ───────────────────────────────────────────────────────────────
     signin: builder.mutation<AuthEnvelope, { email: string; password: string }>({
-      query: (body) => ({ url: '/auth/signin', method: 'POST', body }),
-      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-        const { data } = await queryFulfilled;
+      async queryFn(body, { dispatch }, _extraOptions, baseQuery) {
+        const result = await baseQuery({ url: '/auth/signin', method: 'POST', body });
+        if (result.error) return { error: result.error };
+
+        const data = result.data as AuthEnvelope;
+        // Complete the session before unwrap() resolves or tags refetch.
+        // onQueryStarted runs independently and cannot guarantee this order.
         await saveToken(data.token);
         dispatch(setCredentials({ token: data.token, user: data.data }));
+        return { data };
       },
       invalidatesTags: ['Auth', 'Me'],
     }),

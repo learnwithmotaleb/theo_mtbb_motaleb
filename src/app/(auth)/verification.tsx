@@ -4,7 +4,7 @@ import SectionTitle from '@/components/shared/SectionTitle';
 import Toast, { showToast } from '@/components/shared/Toast';
 import { Body6, Caption3, H1 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
-import { getApiErrorMessage } from '@/lib/apiError';
+import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import {
     useForgotPasswordMutation,
     useVerifyResetOtpMutation,
@@ -59,14 +59,14 @@ export default function VerificationScreen() {
         if (!canResend || !email) return;
         try {
             // Same endpoint as the first send — it re-issues the reset OTP.
-            const res = await forgotPassword({ email }).unwrap();
-            showToast(res.message ?? t("A new code is on its way"), 'success');
+            await forgotPassword({ email }).unwrap();
+            showToast(t("A new code is on its way"), 'success');
             setOtp(Array(OTP_LENGTH).fill(''));
             setCountdown(RESEND_COUNTDOWN);
             setCanResend(false);
             inputRefs.current[0]?.focus();
         } catch (err) {
-            showToast(getApiErrorMessage(err, t("Could not resend the code.")), 'error');
+            showToast(getLocalizedAuthErrorMessage(err, t("Could not resend the code.")), 'error');
         }
     };
 
@@ -100,8 +100,8 @@ export default function VerificationScreen() {
         try {
             // The reset token lives server-side against the account; the next
             // screen only needs the email to complete the reset.
-            const res = await verifyResetOtp({ email, otp: code }).unwrap();
-            showToast(res.message ?? t("Code verified"), 'success');
+            await verifyResetOtp({ email, otp: code }).unwrap();
+            showToast(t("Code verified"), 'success');
             setTimeout(() => {
                 router.push({
                     pathname: '/(auth)/new_password',
@@ -109,7 +109,7 @@ export default function VerificationScreen() {
                 } as any);
             }, 700);
         } catch (err) {
-            showToast(getApiErrorMessage(err, t("Invalid code. Please try again.")), 'error');
+            showToast(getLocalizedAuthErrorMessage(err, t("Invalid code. Please try again.")), 'error');
         }
     };
 
@@ -170,7 +170,7 @@ export default function VerificationScreen() {
                     {/* Bottom button */}
                     <View style={styles.footer}>
                         <CustomButton
-                            title={isLoading ? 'Verifying...' : 'Verify'}
+                            title={isLoading ? t('Verifying...') : t('Verify')}
                             disabled={isLoading}
                             onPress={handleVerify}
                             width="100%"

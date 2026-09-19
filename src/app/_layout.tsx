@@ -15,7 +15,7 @@ import {
     Poppins_800ExtraBold,
     useFonts,
 } from '@expo-google-fonts/poppins';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';

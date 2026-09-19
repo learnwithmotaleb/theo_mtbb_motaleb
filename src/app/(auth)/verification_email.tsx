@@ -8,7 +8,7 @@ import Toast, { showToast } from '@/components/shared/Toast';
 import { Body6, Caption3, H1 } from '@/components/typo/Typography';
 import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
-import { getApiErrorMessage } from '@/lib/apiError';
+import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useResendOtpMutation, useVerifyOtpMutation } from '@/redux/services/authApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -91,7 +91,7 @@ export default function VerificationEmailScreen() {
                 startTimer(); // timer reset করুন
             }
         } catch (err) {
-            showToast(getApiErrorMessage(err, t("Failed to resend OTP")), 'error');
+            showToast(getLocalizedAuthErrorMessage(err, t("Failed to resend OTP")), 'error');
         }
     };
 
@@ -106,13 +106,13 @@ export default function VerificationEmailScreen() {
         try {
             // verifyOtp persists the onboarding token and seeds the auth
             // slice itself (authApi onQueryStarted) — this screen just routes.
-            const res = await verifyOtp({ email, otp: code }).unwrap();
-            showToast(res.message ?? t("Email verified!"), 'success');
+            await verifyOtp({ email, otp: code }).unwrap();
+            showToast(t("Email verified!"), 'success');
             setTimeout(() => {
                 router.push('/(auth)/role_select' as any);
             }, 800);
         } catch (err) {
-            showToast(getApiErrorMessage(err, t("Invalid OTP. Please try again.")), 'error');
+            showToast(getLocalizedAuthErrorMessage(err, t("Invalid OTP. Please try again.")), 'error');
         }
     };
 
@@ -232,7 +232,7 @@ export default function VerificationEmailScreen() {
                                             !canResend && { opacity: 0.4 }
                                         ]}
                                     >
-                                        {isResending ? 'Resending...' : 'Resend Code'}
+                                        {isResending ? t('Resending...') : t('Resend Code')}
                                     </Caption3>
                                 </Pressable>
                             </View>
@@ -242,7 +242,7 @@ export default function VerificationEmailScreen() {
                     {/* Bottom button */}
                     <View style={styles.footer}>
                         <CustomButton
-                            title={isVerifying ? '' : 'Continue'}
+                            title={isVerifying ? '' : t('Continue')}
                             onPress={handleContinue}
                             width="100%"
                             height={hp(52)}

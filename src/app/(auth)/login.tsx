@@ -13,11 +13,12 @@ import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
 import { useForm } from '@/hooks/useForm';
 import { homeRouteForRole } from '@/hooks/useSession';
-import { getApiErrorMessage } from '@/lib/apiError';
+import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useSigninMutation } from '@/redux/services/authApi';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
+    Keyboard,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -34,6 +35,7 @@ export default function LoginScreen() {
     const router = useRouter();
     const [rememberMe, setRememberMe] = useState(false);
     const [signin, { isLoading }] = useSigninMutation();
+    const signInPending = useRef(false);
 
     const { values, errors, touched, handleChange, handleSubmit } = useForm({
         initialValues: {
@@ -45,9 +47,11 @@ export default function LoginScreen() {
             [FORM_FIELDS.PASSWORD]: validatePassword,
         },
         onSubmit: async (values) => {
+            if (signInPending.current) return;
+            signInPending.current = true;
+            Keyboard.dismiss();
             try {
-                // signin persists the token and fills the auth slice itself
-                // (see authApi's onQueryStarted), so the screen only routes.
+                // The mutation resolves only after the session is ready.
                 const res = await signin({
                     email: values[FORM_FIELDS.EMAIL],
                     password: values[FORM_FIELDS.PASSWORD],
@@ -59,13 +63,13 @@ export default function LoginScreen() {
                     return;
                 }
 
-                showToast(res.message ?? t("Signed in successfully"), 'success');
+                showToast(t("Signed in successfully"), 'success');
 
-                setTimeout(() => {
-                    router.replace(homeRouteForRole(res.data.role) as any);
-                }, 800);
+                router.replace(homeRouteForRole(res.data.role) as any);
             } catch (err) {
-                showToast(getApiErrorMessage(err, t("Login failed. Please try again.")), 'error');
+                showToast(getLocalizedAuthErrorMessage(err, t("Login failed. Please try again.")), 'error');
+            } finally {
+                signInPending.current = false;
             }
         },
     });
@@ -153,7 +157,7 @@ export default function LoginScreen() {
                                 {/* Login button */}
                                 <View style={styles.btnWrapper}>
                                     <CustomButton
-                                        title={isLoading ? '' : 'Log in'}
+                                        title={isLoading ? '' : t('Log in')}
                                         onPress={handleSubmit}
                                         width="100%"
                                         height={hp(52)}
@@ -173,7 +177,7 @@ export default function LoginScreen() {
                             <View style={styles.dividerRow}>
                                 <View style={styles.dividerLine} />
                                 <Body3 color={Colors.TEXT_COLOR} style={styles.dividerText}>
-                                    Or
+                                    {t('Or')}
                                 </Body3>
                                 <View style={styles.dividerLine} />
                             </View>

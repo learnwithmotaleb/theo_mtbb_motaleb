@@ -8,7 +8,7 @@ import { StepIndicator } from '@/components/shared/StepIndicator';
 import Toast, { showToast } from '@/components/shared/Toast';
 import { Body6, Caption3, H1, H3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
-import { getApiErrorMessage } from '@/lib/apiError';
+import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useAppDispatch } from '@/redux/hooks';
 import { useSelectRoleMutation } from '@/redux/services/authApi';
 import { setRole } from '@/redux/slices/authSlice';
@@ -53,13 +53,13 @@ export default function RoleSelectScreen() {
             const res = await selectRole({ role: selectedRole }).unwrap();
             if (res.success) {
                 dispatch(setRole(selectedRole));
-                showToast(res.message ?? t("Role selected!"), 'success');
+                showToast(t("Role selected!"), 'success');
                 setTimeout(() => {
                     router.push('/(auth)/complete_information' as any);
                 }, 800);
             }
         } catch (err) {
-            showToast(getApiErrorMessage(err, t("Failed to select role. Try again.")), 'error');
+            showToast(getLocalizedAuthErrorMessage(err, t("Failed to select role. Try again.")), 'error');
         }
     };
 
@@ -123,7 +123,7 @@ export default function RoleSelectScreen() {
 
                 <View style={styles.footer}>
                     <CustomButton
-                        title={isLoading ? '' : 'Continue'}
+                        title={isLoading ? '' : t('Continue')}
                         onPress={handleContinue}
                         width="100%"
                         height={hp(56)}

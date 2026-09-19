@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { useT } from '@/i18n';
 
 import { CloseEyeIcon } from '@/assets/icons/common_icon/CloseEyeIcon';
 import { EyeIconIcon } from '@/assets/icons/common_icon/EyeIcon';
@@ -40,6 +41,7 @@ export const FormInput: React.FC<FormInputProps> = ({
     onBlur,
     leftIcon,
 }) => {
+    const t = useT();
     const [showPassword, setShowPassword] = useState(false);
 
     const getKeyboardtype = () => {
@@ -52,8 +54,8 @@ export const FormInput: React.FC<FormInputProps> = ({
 
     const getError = () => {
         if (!touched) return undefined;
-        if (required && !value.trim()) return "This field is required";
-        return error;
+        if (required && !value.trim()) return t("This field is required");
+        return error ? t(error) : error;
     }
 
     return (
