@@ -11,6 +11,9 @@ import { Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { ListEvent, PLATFORM_COLORS } from '@/types/planningTypes';
 import { AppImage } from '@/components/shared/AppImage';
+import { showToast } from '@/components/shared/Toast';
+import { getApiErrorMessage } from '@/lib/apiError';
+import { useDeleteScheduleMutation } from '@/redux/services/scheduleApi';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
@@ -51,6 +54,31 @@ export function ListView({
     const router = useRouter();
     const [cancelVisible, setCancelVisible] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<ListEvent | null>(null);
+    const [deleteSchedule, { isLoading: isCancelling }] = useDeleteScheduleMutation();
+
+    const handleRowPress = (item: ListEvent) => {
+        if (item.scheduleId) {
+            // A cleaning exists → offer to cancel it
+            setSelectedEvent(item);
+            setCancelVisible(true);
+        } else {
+            // No cleaning yet → navigate to schedule creation
+            router.push('/host/home/recommended_cleaning' as any);
+        }
+    };
+
+    const handleCancelConfirm = async () => {
+        if (!selectedEvent?.scheduleId) return;
+        try {
+            await deleteSchedule(selectedEvent.scheduleId).unwrap();
+            showToast(t('Schedule cancelled successfully.'), 'success');
+        } catch (err) {
+            showToast(getApiErrorMessage(err, t('Could not cancel the schedule.')), 'error');
+        } finally {
+            setCancelVisible(false);
+            setSelectedEvent(null);
+        }
+    };
 
     if (!hasData) {
         return (
@@ -94,10 +122,7 @@ export function ListView({
                 renderItem={({ item }) => (
                     <Pressable
                         style={styles.row}
-                        onPress={() => {
-                            setSelectedEvent(item);
-                            setCancelVisible(true);
-                        }}
+                    onPress={() => handleRowPress(item)}
                     >
                         <PlatformIcon platform={item.platform} />
 
@@ -114,21 +139,23 @@ export function ListView({
                             </View>
 
                             <View style={styles.cleaningRow}>
-                                {item.hasManualCleaning ? (
-                                    <Pressable
-                                        style={styles.plusCircle}
-                                        onPress={() =>
-                                            router.push('/host/housing/manage_cleaners' as any)
-                                        }
-                                    >
-                                        <PlusIcon color={Colors.COLOR_ACTIVE} />
-                                    </Pressable>
-                                ) : (
+                                {item.scheduleId ? (
+                                    // A real cleaning exists → show the assigned cleaner's avatar
                                     <AppImage
                                         source={item.cleanerImage}
                                         style={styles.cleanerAvatar}
                                         contentFit="cover"
                                     />
+                                ) : (
+                                    // No cleaning yet → show + button to schedule one
+                                    <Pressable
+                                        style={styles.plusCircle}
+                                        onPress={() =>
+                                            router.push('/host/home/recommended_cleaning' as any)
+                                        }
+                                    >
+                                        <PlusIcon color={Colors.COLOR_ACTIVE} />
+                                    </Pressable>
                                 )}
                                 <View style={{ flex: 1 }}>
                                     <Caption3 color={Colors.PRIMARY_TEXT}>{item.cleaningLabel}</Caption3>
@@ -143,8 +170,12 @@ export function ListView({
 
             <CancelScheduleModal
                 visible={cancelVisible}
-                onClose={() => setCancelVisible(false)}
-                onConfirm={() => setCancelVisible(false)}
+                onClose={() => {
+                    setCancelVisible(false);
+                    setSelectedEvent(null);
+                }}
+                onConfirm={handleCancelConfirm}
+                isLoading={isCancelling}
             />
         </>
     );

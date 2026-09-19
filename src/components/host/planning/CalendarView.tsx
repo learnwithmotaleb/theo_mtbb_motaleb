@@ -12,6 +12,9 @@ import { Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { CalendarEvent } from '@/types/planningTypes';
 import { AppImage } from '@/components/shared/AppImage';
+import { showToast } from '@/components/shared/Toast';
+import { getApiErrorMessage } from '@/lib/apiError';
+import { useDeleteScheduleMutation } from '@/redux/services/scheduleApi';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -64,8 +67,23 @@ export function CalendarView({
     const now = new Date();
     const [year, setYear] = useState(now.getFullYear());
     const [month, setMonth] = useState(now.getMonth());
+    const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [cancelVisible, setCancelVisible] = useState(false);
-    const [popup, setPopup] = useState<PopupData>(null);
+    const [deleteSchedule, { isLoading: isCancelling }] = useDeleteScheduleMutation();
+
+
+    const handleCancelConfirm = async () => {
+        if (!selectedEvent?.scheduleId) return;
+        try {
+            await deleteSchedule(selectedEvent.scheduleId).unwrap();
+            showToast(t('Schedule cancelled successfully.'), 'success');
+        } catch (err) {
+            showToast(getApiErrorMessage(err, t('Could not cancel the schedule.')), 'error');
+        } finally {
+            setCancelVisible(false);
+            setSelectedEvent(null);
+        }
+    };
 
     const totalDays = getDaysInMonth(year, month);
     const firstDayIndex = getFirstDayOfMonth(year, month);
@@ -198,24 +216,27 @@ export function CalendarView({
                                             {day !== null && (
                                                 <Caption4 color={Colors.PRIMARY_TEXT}>{day}</Caption4>
                                             )}
-                                            {event?.hasManualCleaning ? (
-                                                <Pressable
-                                                    style={styles.plusIcon}
-                                                    onPress={() =>
-                                                        router.push('/host/housing/manage_cleaners' as any)
-                                                    }
-                                                >
-                                                    <PlusIcon color={Colors.COLOR_ACTIVE} />
-                                                </Pressable>
-                                            ) : event ? (
-                                                <Pressable onPress={() => setCancelVisible(true)}>
+                                            {event?.scheduleId ? (
+                                                // A cleaning exists → show the assigned cleaner avatar
+                                                <Pressable onPress={() => {
+                                                    setSelectedEvent(event);
+                                                    setCancelVisible(true);
+                                                }}>
                                                     <AppImage
                                                         source={event.cleanerImage}
                                                         style={styles.cleanerAvatar}
                                                         contentFit="cover"
                                                     />
                                                 </Pressable>
-                                            ) : null}
+                                            ) : (
+                                                // No cleaning yet → show + button to schedule one
+                                                <Pressable
+                                                    style={styles.plusIcon}
+                                                    onPress={() => router.push('/host/home/recommended_cleaning' as any)}
+                                                >
+                                                    <PlusIcon color={Colors.COLOR_ACTIVE} />
+                                                </Pressable>
+                                            )}
                                         </View>
                                     );
                                 })}
@@ -302,8 +323,9 @@ export function CalendarView({
 
             <CancelScheduleModal
                 visible={cancelVisible}
-                onClose={() => setCancelVisible(false)}
-                onConfirm={() => setCancelVisible(false)}
+                onClose={() => { setCancelVisible(false); setSelectedEvent(null); }}
+                onConfirm={handleCancelConfirm}
+                isLoading={isCancelling}
             />
         </ScrollView>
     );

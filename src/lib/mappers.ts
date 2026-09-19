@@ -379,9 +379,7 @@ export const toCalendarEvents = (month: any): CalendarEvent[] => {
       platform: knownPlatform(booking.platform),
       cleanerImage: avatarSource(schedule?.cleaner?.profileImage),
       hasManualCleaning: Boolean(schedule && !schedule.booking),
-      cleaningTime: schedule
-        ? `${formatDate(schedule.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${formatClock(schedule.checkOutTime)} - ${formatClock(schedule.checkInTime)}`
-        : 'No cleaning scheduled',
+      cleaningTime: schedule ? `${formatClock(schedule.checkOutTime)} - ${formatClock(schedule.checkInTime)}` : '',
     };
   });
 };
@@ -393,6 +391,7 @@ export const toListEvents = (list: any): ListEvent[] =>
     const schedule = item.schedule ?? null;
     return {
       id: String(booking._id ?? item._id ?? ''),
+      scheduleId: schedule ? String(schedule._id) : undefined,
       checkIn: stayLabel(booking.startDate),
       checkOut: stayLabel(booking.endDate),
       platform: knownPlatform(booking.platform),

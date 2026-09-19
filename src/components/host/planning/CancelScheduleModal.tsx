@@ -11,9 +11,10 @@ type Props = {
     visible: boolean;
     onClose: () => void;
     onConfirm: () => void;
+    isLoading?: boolean;
 };
 
-export function CancelScheduleModal({ visible, onClose, onConfirm }: Props) {
+export function CancelScheduleModal({ visible, onClose, onConfirm, isLoading }: Props) {
     const t = useT();
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -32,14 +33,14 @@ export function CancelScheduleModal({ visible, onClose, onConfirm }: Props) {
 
                     <View style={styles.btnRow}>
                         <CustomButton
-                            title={t("Cancel Schedule")}
+                            title={isLoading ? t('Cancelling...') : t('Cancel Schedule')}
                             onPress={onConfirm}
                             width="48%"
                             backgroundColor={Colors.COLOR_DANGER}
                             color="#fff"
                             borderRadius={wp(12)}
                             height={hp(48)}
-                            // style={{fontSize:12}}
+                            disabled={isLoading}
                         />
                         <CustomButton
                             title={t("Back")}
