@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gestlio",
     "slug": "gestlio",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon1.png",
     "scheme": "gestlio",
@@ -10,7 +10,7 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.gestlio.app",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "supportsTablet": false,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Gestlio needs access to your photos so you can add pictures of your accommodation and upload proof of a completed cleaning.",
@@ -28,7 +28,7 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
       "package": "com.gestlio.app",
-      "versionCode": 1,
+      "versionCode": 3,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.READ_MEDIA_IMAGES",
