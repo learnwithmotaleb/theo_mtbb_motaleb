@@ -80,7 +80,7 @@ export default function TaskDetailScreen() {
         image: detail.image,
         apartmentName: detail.apartmentName,
         address: detail.address,
-        time: `${formatClock(schedule?.checkInTime)} – ${formatClock(schedule?.checkOutTime)}`,
+        time: `${formatClock(schedule?.checkOutTime)} – ${formatClock(schedule?.checkInTime)}`,
         estimation,
     };
 

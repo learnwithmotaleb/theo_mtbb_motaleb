@@ -147,6 +147,7 @@ export type CleanerTask = {
     image: any;
     isPrincipal: boolean;
     isUpcoming: boolean;
+    status?: string;
     // Details page data
     type: string;
     surface: string;

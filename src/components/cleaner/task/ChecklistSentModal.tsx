@@ -27,7 +27,7 @@ export function ChecklistSentModal({ visible, onClose }: Props) {
                         {t("Checklist Sent")}
                     </Body5>
                     <Caption3 color={Colors.TEXT_COLOR} align="center" style={{ marginBottom: hp(16) }}>
-                        waiting for host approval
+                        {t("Waiting for host approval")}
                     </Caption3>
                     <CustomButton
                         title={t("Back to home")}

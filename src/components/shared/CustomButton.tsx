@@ -7,7 +7,7 @@ import { Caption2 } from '../typo/Typography';
 import CustomLoader from './CustomLoader';
 
 interface CustomButtonProps {
-    onPress: () => void;
+    onPress?: () => void;
     title?: string;
     icon?: React.ReactNode;
     style?: ViewStyle;
