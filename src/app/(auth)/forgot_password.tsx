@@ -7,7 +7,7 @@ import { Body6, H3 } from '@/components/typo/Typography';
 import { FORM_FIELDS } from '@/components/ui/form';
 import { Colors } from '@/constants/theme';
 import { useForm } from '@/hooks/useForm';
-import { getApiErrorMessage } from '@/lib/apiError';
+import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useForgotPasswordMutation } from '@/redux/services/authApi';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -30,8 +30,8 @@ export default function ForgotPasswordScreen() {
         onSubmit: async (values) => {
             const email = values[FORM_FIELDS.EMAIL];
             try {
-                const res = await forgotPassword({ email }).unwrap();
-                showToast(res.message ?? t("OTP sent to your email"), 'success');
+                await forgotPassword({ email }).unwrap();
+                showToast(t("OTP sent to your email"), 'success');
                 setTimeout(() => {
                     router.push({
                         pathname: '/(auth)/verification',
@@ -39,7 +39,7 @@ export default function ForgotPasswordScreen() {
                     } as any);
                 }, 700);
             } catch (err) {
-                showToast(getApiErrorMessage(err, t("Could not send the OTP.")), 'error');
+                showToast(getLocalizedAuthErrorMessage(err, t("Could not send the OTP.")), 'error');
             }
         },
     });
@@ -83,7 +83,7 @@ export default function ForgotPasswordScreen() {
                     {/* Bottom button */}
                     <View style={styles.footer}>
                         <CustomButton
-                            title={isLoading ? 'Sending...' : 'Send OTP'}
+                            title={isLoading ? t('Sending...') : t('Send OTP')}
                             onPress={handleSubmit}
                             disabled={isLoading}
                             width="100%"

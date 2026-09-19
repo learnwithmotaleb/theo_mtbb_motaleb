@@ -12,7 +12,7 @@ import { FORM_FIELDS } from '@/components/ui/form';
 import { Colors } from '@/constants/theme';
 import { useForm } from '@/hooks/useForm';
 import { homeRouteForRole } from '@/hooks/useSession';
-import { getApiErrorMessage } from '@/lib/apiError';
+import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useAppSelector } from '@/redux/hooks';
 import {
     useCompleteProfileMutation,
@@ -92,7 +92,7 @@ export default function CompleteInformationScreen() {
                     }
                 }
 
-                showToast(res.message ?? t("Profile completed!"), 'success');
+                showToast(t("Profile completed!"), 'success');
                 setTimeout(() => {
                     // A brand-new account goes through its role's onboarding
                     // first; both wizards end on the matching home tabs.
@@ -108,19 +108,20 @@ export default function CompleteInformationScreen() {
                 }, 800);
             } catch (err) {
                 showToast(
-                    getApiErrorMessage(err, t("Failed to complete profile. Try again.")),
+                    getLocalizedAuthErrorMessage(err, t("Failed to complete profile. Try again.")),
                     'error',
                 );
             }
         },
     });
 
+    const password = values[FORM_FIELDS.PASSWORD] ?? '';
     const passwordRules = useMemo(
         () => securityRules(t).map((rule) => ({
             ...rule,
-            passed: rule.test(values[FORM_FIELDS.PASSWORD] ?? '')
+            passed: rule.test(password)
         })),
-        [values[FORM_FIELDS.PASSWORD]]
+        [password, t]
     );
 
     return (
@@ -224,7 +225,7 @@ export default function CompleteInformationScreen() {
 
                 <View style={styles.footer}>
                     <CustomButton
-                        title={isLoading ? '' : 'Continue'}
+                        title={isLoading ? '' : t('Continue')}
                         onPress={handleSubmit}
                         width="100%"
                         height={hp(52)}

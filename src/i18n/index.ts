@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useSelector } from 'react-redux';
 
 import type { Locale } from '@/redux/slices/localeSlice';
-import { deviceLocale } from '@/redux/slices/localeSlice';
+import { DEFAULT_LOCALE } from '@/redux/slices/localeSlice';
 import { fr } from './fr';
 
 export const LOCALE_KEY = 'gestlio_locale';
@@ -29,7 +29,7 @@ const CATALOGS: Record<Locale, Record<string, string>> = {
  * app.json) rightly caches `t("Home")` forever because nothing reactive feeds
  * it. Components call `useT()` instead — see below.
  */
-let activeLocale: Locale = deviceLocale();
+let activeLocale: Locale = DEFAULT_LOCALE;
 
 export const setActiveLocale = (locale: Locale) => {
   activeLocale = locale;

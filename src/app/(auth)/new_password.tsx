@@ -7,7 +7,7 @@ import { Caption2 } from '@/components/typo/Typography';
 import { FORM_FIELDS } from '@/components/ui/form';
 import { Colors } from '@/constants/theme';
 import { useForm } from '@/hooks/useForm';
-import { getApiErrorMessage } from '@/lib/apiError';
+import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useAppSelector } from '@/redux/hooks';
 import { useResetPasswordMutation } from '@/redux/services/authApi';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -45,15 +45,15 @@ export default function NewPasswordScreen() {
                 return;
             }
             try {
-                const res = await resetPassword({
+                await resetPassword({
                     email,
                     newPassword: values[FORM_FIELDS.NEW_PASSWORD],
                     confirmPassword: values[FORM_FIELDS.CONFIRM_NEW_PASSWORD],
                 }).unwrap();
-                showToast(res.message ?? t("Password updated"), 'success');
+                showToast(t("Password updated"), 'success');
                 setTimeout(() => router.replace('/(auth)/login' as any), 800);
             } catch (err) {
-                showToast(getApiErrorMessage(err, t("Could not reset the password.")), 'error');
+                showToast(getLocalizedAuthErrorMessage(err, t("Could not reset the password.")), 'error');
             }
         },
     });
@@ -102,7 +102,7 @@ export default function NewPasswordScreen() {
                      {/* Bottom button */}
                 <View style={styles.footer}>
                     <CustomButton
-                        title={isLoading ? 'Saving...' : 'Save'}
+                        title={isLoading ? t('Saving...') : t('Save')}
                         disabled={isLoading}
                         onPress={handleSubmit}
                         width="100%"

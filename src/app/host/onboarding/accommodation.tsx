@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#4a4a3a',
     },
     photoOverlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: 'rgba(0,0,0,0.45)',
     },
     photoPreview: {

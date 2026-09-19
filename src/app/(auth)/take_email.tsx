@@ -11,6 +11,7 @@ import { FORM_FIELDS } from '@/components/ui/form';
 import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
 import { useForm } from '@/hooks/useForm';
+import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useSignupMutation } from '@/redux/services/authApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
@@ -44,7 +45,7 @@ export default function TakeEmailScreen() {
         const res = await signup({ email: values[FORM_FIELDS.EMAIL] }).unwrap();
 
         if (res.success) {
-          showToast(res.message ?? t("OTP sent to your email"), 'success');
+          showToast(t("OTP sent to your email"), 'success');
           setTimeout(() => {
             router.push({
               pathname: '/(auth)/verification_email',
@@ -53,8 +54,9 @@ export default function TakeEmailScreen() {
           }, 800);
         }
       } catch (err: any) {
-        const message =
-          err?.data?.message ?? t("Something went wrong. Please try again.");
+        const message = getLocalizedAuthErrorMessage(
+          err, t("Something went wrong. Please try again."),
+        );
         showToast(message, 'error');
       }
     },
@@ -135,7 +137,7 @@ export default function TakeEmailScreen() {
         {/* Bottom button */}
         <View style={styles.footer}>
           <CustomButton
-            title={isLoading ? '' : 'Continue'}
+            title={isLoading ? '' : t('Continue')}
             onPress={handleSubmit}
             width="100%"
             height={hp(52)}

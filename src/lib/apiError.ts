@@ -2,6 +2,8 @@
 // JSON envelope in `data`) or a SerializedError. One helper so every screen
 // shows the backend's own message instead of "[object Object]".
 
+import { getActiveLocale, t } from '@/i18n';
+
 export const getApiErrorMessage = (
   error: unknown,
   fallback = 'Something went wrong. Please try again.',
@@ -22,4 +24,11 @@ export const getApiErrorMessage = (
   if (err.message) return err.message;
   if (typeof err.error === 'string') return err.error;
   return fallback;
+};
+
+/** Auth screens use a localized fallback for uncatalogued server messages. */
+export const getLocalizedAuthErrorMessage = (error: unknown, fallback: string): string => {
+  const message = getApiErrorMessage(error, fallback);
+  const translated = t(message);
+  return getActiveLocale() === 'fr' && translated === message ? fallback : translated;
 };
