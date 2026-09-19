@@ -33,8 +33,32 @@ export const imageSource = (path?: string | null, fallback: any = IMAGE_COMPONEN
   return url ? { uri: url } : fallback;
 };
 
-export const avatarSource = (path?: string | null) =>
-  imageSource(path, IMAGE_COMPONENTS.cleanerPP);
+export const avatarSource = (
+  path?: string | null,
+  fallback: any = IMAGE_COMPONENTS.cleanerPP,
+) => imageSource(path, fallback);
+
+export const hostAvatarSource = (person?: any) => {
+  const path =
+    person?.profileImage ??
+    person?.avatar ??
+    person?.photo ??
+    person?.image ??
+    person?.profilePicture ??
+    person?.user?.profileImage;
+  return imageSource(path, IMAGE_COMPONENTS.hostProfile);
+};
+
+export const cleanerAvatarSource = (person?: any) => {
+  const path =
+    person?.profileImage ??
+    person?.avatar ??
+    person?.photo ??
+    person?.image ??
+    person?.profilePicture ??
+    person?.user?.profileImage;
+  return imageSource(path, IMAGE_COMPONENTS.cleanerPP);
+};
 
 /** The backend sends firstName/lastName, or a pre-joined `name`. */
 export const personName = (
@@ -209,7 +233,7 @@ export const toCleanerTask = (mission: MissionCard): CleanerTask & {
   paymentStatus: string;
 } => {
   const accommodation = (mission.accommodation ?? {}) as any;
-  const host = (mission.host ?? {}) as any;
+  const host = (mission.host ?? accommodation?.host ?? accommodation?.userId ?? {}) as any;
   const assignment = mission.assignment as any;
 
   return {
@@ -217,7 +241,7 @@ export const toCleanerTask = (mission: MissionCard): CleanerTask & {
     apartmentName: accommodation?.name ?? 'Accommodation',
     address: accommodationLocation(accommodation),
     date: mission.dayLabel || formatDate(mission.date),
-    time: `${formatClock(mission.checkInTime)} – ${formatClock(mission.checkOutTime)}`,
+    time: `${formatClock(mission.checkOutTime)} – ${formatClock(mission.checkInTime)}`,
     image: accommodationPhoto(accommodation),
     // "Principal" = this cleaner is the primary on the assignment, not a
     // substitute standing in for them.
@@ -242,7 +266,7 @@ export const toCleanerTask = (mission: MissionCard): CleanerTask & {
     client: {
       name: personName(host, 'Host'),
       phone: host?.phone ?? '',
-      image: avatarSource(host?.profileImage),
+      image: hostAvatarSource(host),
     },
 
     status: mission.status,
@@ -260,7 +284,7 @@ export const toCleanerTask = (mission: MissionCard): CleanerTask & {
 /** A pending assignment request as the cleaner's request cards want it. */
 export const toCleanerRequest = (assignment: CleanerAssignment) => {
   const accommodation = assignment.accommodation as any;
-  const host = assignment.host as any;
+  const host = (assignment.host ?? accommodation?.host ?? {}) as any;
   return {
     id: assignment._id,
     accommodationId: accommodation?._id ?? '',
@@ -275,7 +299,7 @@ export const toCleanerRequest = (assignment: CleanerAssignment) => {
     role: assignment.role,
     hostId: host?._id ?? '',
     hostName: personName(host, 'Host'),
-    hostImage: avatarSource(host?.profileImage),
+    hostImage: hostAvatarSource(host),
     hostProperties: host?.totalProperties ?? 0,
     hostMemberSince: host?.memberSince
       ? formatDate(host.memberSince, { month: 'long', year: 'numeric' })
@@ -356,7 +380,7 @@ export const toCalendarEvents = (month: any): CalendarEvent[] => {
       cleanerImage: avatarSource(schedule?.cleaner?.profileImage),
       hasManualCleaning: Boolean(schedule && !schedule.booking),
       cleaningTime: schedule
-        ? `${formatDate(schedule.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${formatClock(schedule.checkInTime)} - ${formatClock(schedule.checkOutTime)}`
+        ? `${formatDate(schedule.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${formatClock(schedule.checkOutTime)} - ${formatClock(schedule.checkInTime)}`
         : 'No cleaning scheduled',
     };
   });
@@ -375,7 +399,7 @@ export const toListEvents = (list: any): ListEvent[] =>
       cleanerImage: avatarSource(schedule?.cleaner?.profileImage),
       cleaningLabel: schedule ? 'Scheduled Cleaning' : 'No cleaning scheduled',
       cleaningTime: schedule
-        ? `${formatDate(schedule.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${formatClock(schedule.checkInTime)} - ${formatClock(schedule.checkOutTime)}`
+        ? `${formatDate(schedule.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${formatClock(schedule.checkOutTime)} - ${formatClock(schedule.checkInTime)}`
         : '',
       hasManualCleaning: Boolean(schedule && !schedule.booking),
     };

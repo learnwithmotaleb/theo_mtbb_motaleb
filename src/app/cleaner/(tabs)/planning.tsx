@@ -111,7 +111,7 @@ export default function PlanningScreen() {
                 estimation: mission.estimationHours
                     ? `${mission.estimationHours}h`
                     : '—',
-                time: `${formatClock(mission.checkInTime)} – ${formatClock(mission.checkOutTime)}`,
+                time: `${formatClock(mission.checkOutTime)} – ${formatClock(mission.checkInTime)}`,
                 image: accommodationPhoto(accommodation),
             };
         });

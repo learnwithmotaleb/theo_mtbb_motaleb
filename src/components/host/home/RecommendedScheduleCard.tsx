@@ -18,7 +18,7 @@ type Props = {
 export function RecommendedScheduleCard({ data, onPress }: Props) {
     const t = useT();
     return (
-        <View style={styles.card}>
+        <Pressable style={styles.card} onPress={onPress}>
             <View style={styles.topRow}>
                 {/* Thumbnail */}
                 <AppImage
@@ -33,10 +33,10 @@ export function RecommendedScheduleCard({ data, onPress }: Props) {
                         {data.apartmentName}
                     </Caption1>
 
-                    <Pressable style={styles.titleRow} onPress={onPress}>
+                    <View style={styles.titleRow}>
                         <Caption3 color={Colors.TEXT_COLOR}>{t("Next cleaning to schedule")}</Caption3>
                         <RightAngleIcon size={22} color={Colors.TEXT_COLOR} />
-                    </Pressable>
+                    </View>
 
                     <View style={styles.infoRow}>
                         {/* Ideal Date chip */}
@@ -77,7 +77,7 @@ export function RecommendedScheduleCard({ data, onPress }: Props) {
                     </View>
                 </View>
             </View>
-        </View>
+        </Pressable>
     );
 }
 

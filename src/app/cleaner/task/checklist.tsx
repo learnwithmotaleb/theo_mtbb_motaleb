@@ -13,6 +13,7 @@ import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { formatClock } from '@/lib/datetime';
 import { accommodationLocation, accommodationPhoto } from '@/lib/mappers';
+import { resolveAssetUrl } from '@/lib/config';
 import {
     useGetScheduleByIdQuery,
     useSubmitProofMutation,
@@ -38,6 +39,21 @@ export default function ChecklistScreen() {
     const [photos, setPhotos] = useState<string[]>([]);
     const [notes, setNotes] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
+    // Locked locally the instant submitProof resolves so the UI can't accept
+    // a second submission even while the RTK Query cache is still refreshing.
+    const [proofJustSubmitted, setProofJustSubmitted] = useState(false);
+
+    const isProofSubmitted = schedule?.status === 'proof_submitted';
+    const isCompleted = schedule?.status === 'completed';
+    const isReadonly = isProofSubmitted || isCompleted || proofJustSubmitted;
+
+    const displayedPhotos = useMemo(() => {
+        if (photos.length > 0) return photos.map((uri) => ({ uri, canRemove: true }));
+        return (schedule?.proofPhotos ?? []).map((p) => ({
+            uri: resolveAssetUrl(p),
+            canRemove: false,
+        }));
+    }, [photos, schedule?.proofPhotos]);
 
     const task = useMemo(() => {
         const accommodation = (schedule?.accommodation ?? {}) as any;
@@ -45,14 +61,14 @@ export default function ChecklistScreen() {
             image: accommodationPhoto(accommodation),
             apartmentName: accommodation?.name ?? 'Accommodation',
             address: accommodationLocation(accommodation),
-            time: `${formatClock(schedule?.checkInTime)} – ${formatClock(schedule?.checkOutTime)}`,
+            time: `${formatClock(schedule?.checkOutTime)} – ${formatClock(schedule?.checkInTime)}`,
         };
     }, [schedule]);
 
     // Photos are the proof the host validates against, so at least one is
     // required before the mission can be submitted.
     const handleSubmit = async () => {
-        if (!taskId) return;
+        if (!taskId || isReadonly) return;
         if (photos.length === 0) {
             showToast(t("Capture at least one photo as proof."), 'error');
             return;
@@ -63,6 +79,8 @@ export default function ChecklistScreen() {
                 proofNotes: notes.trim() || undefined,
                 photos: photos.map((uri) => ({ uri })),
             }).unwrap();
+            // Lock the UI immediately — don't wait for the cache to refresh.
+            setProofJustSubmitted(true);
             setModalVisible(true);
         } catch (err) {
             showToast(getApiErrorMessage(err, t("Could not submit the proof.")), 'error');
@@ -70,6 +88,7 @@ export default function ChecklistScreen() {
     };
 
     const handleCapture = async () => {
+        if (isReadonly) return;
         const permission = await ImagePicker.requestCameraPermissionsAsync();
         if (!permission.granted) {
             Alert.alert(t("Permission required"), t("Camera permission is needed."));
@@ -136,15 +155,17 @@ export default function ChecklistScreen() {
                     </View>
 
                     {/* Capture button */}
-                    <Pressable style={styles.captureBtn} onPress={handleCapture}>
-                        <View style={styles.iconGroup}>
-                            <CameraIcon color='#303030' />
-                        </View>
-                        <Caption3 color={Colors.PRIMARY_TEXT}>{t("Capture Photos")}</Caption3>
-                    </Pressable>
+                    {!isReadonly && (
+                        <Pressable style={styles.captureBtn} onPress={handleCapture}>
+                            <View style={styles.iconGroup}>
+                                <CameraIcon color='#303030' />
+                            </View>
+                            <Caption3 color={Colors.PRIMARY_TEXT}>{t("Capture Photos")}</Caption3>
+                        </Pressable>
+                    )}
 
                     {/* Photos section */}
-                    {photos.length > 0 && (
+                    {displayedPhotos.length > 0 && (
                         <>
                             <Caption3
                                 color={Colors.TEXT_COLOR}
@@ -153,19 +174,21 @@ export default function ChecklistScreen() {
                             >
                                 {t("Photos")}
                             </Caption3>
-                            {photos.map((uri, idx) => (
+                            {displayedPhotos.map((item, idx) => (
                                 <View key={idx} style={styles.photoWrapper}>
                                     <AppImage
-                                        source={{ uri }}
+                                        source={{ uri: item.uri }}
                                         style={styles.photo}
                                         contentFit="cover"
                                     />
-                                    <Pressable
-                                        style={styles.removeBtn}
-                                        onPress={() => handleRemovePhoto(idx)}
-                                    >
-                                        <Caption3 color="#fff">✕</Caption3>
-                                    </Pressable>
+                                    {item.canRemove && !isReadonly && (
+                                        <Pressable
+                                            style={styles.removeBtn}
+                                            onPress={() => handleRemovePhoto(idx)}
+                                        >
+                                            <Caption3 color="#fff">✕</Caption3>
+                                        </Pressable>
+                                    )}
                                 </View>
                             ))}
                         </>
@@ -181,8 +204,9 @@ export default function ChecklistScreen() {
                             placeholder={t("Add any specific details or issues found...")}
                             placeholderTextColor={Colors.PLACEHOLDER_TEXT}
                             multiline
-                            value={notes}
-                            onChangeText={setNotes}
+                            value={isReadonly ? (schedule?.proofNotes ?? '') : notes}
+                            onChangeText={isReadonly ? undefined : setNotes}
+                            editable={!isReadonly}
                             textAlignVertical="top"
                         />
                     </View>
@@ -190,16 +214,38 @@ export default function ChecklistScreen() {
 
                 {/* Footer */}
                 <View style={styles.footer}>
-                    <CustomButton
-                        title={isSubmitting ? 'Submitting...' : 'Submit Proof'}
-                        disabled={isSubmitting}
-                        onPress={handleSubmit}
-                        width="100%"
-                        backgroundColor={Colors.COLOR_ACTIVE}
-                        color="#fff"
-                        borderRadius={wp(8)}
-                        height={hp(52)}
-                    />
+                    {isCompleted ? (
+                        <CustomButton
+                            title={t("Cleaning completed")}
+                            disabled
+                            width="100%"
+                            backgroundColor="#E8F5E9"
+                            color="#2E7D32"
+                            borderRadius={wp(8)}
+                            height={hp(52)}
+                        />
+                    ) : (isProofSubmitted || proofJustSubmitted) ? (
+                        <CustomButton
+                            title={t("Proof submitted — Waiting for approval")}
+                            disabled
+                            width="100%"
+                            backgroundColor="#F3F3FE"
+                            color={Colors.COLOR_ACTIVE}
+                            borderRadius={wp(8)}
+                            height={hp(52)}
+                        />
+                    ) : (
+                        <CustomButton
+                            title={isSubmitting ? t("Submitting...") : t("Submit Proof")}
+                            disabled={isSubmitting}
+                            onPress={handleSubmit}
+                            width="100%"
+                            backgroundColor={Colors.COLOR_ACTIVE}
+                            color="#fff"
+                            borderRadius={wp(8)}
+                            height={hp(52)}
+                        />
+                    )}
                 </View>
             </KeyboardAvoidingView>
 

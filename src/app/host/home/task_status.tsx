@@ -146,7 +146,7 @@ export default function TaskStatusScreen() {
         }
     };
 
-    const timeSlot = `${formatClock(schedule?.checkInTime)} – ${formatClock(schedule?.checkOutTime)}`;
+    const timeSlot = `${formatClock(schedule?.checkOutTime)} – ${formatClock(schedule?.checkInTime)}`;
 
     const renderContent = () => {
         switch (status) {

@@ -90,6 +90,9 @@ export default function TaskDetailsScreen() {
     // A schedule the cleaner has not answered yet: the footer offers
     // accept / refuse instead of the completion flow.
     const needsResponse = schedule?.status === 'scheduled';
+    const isProofSubmitted = schedule?.status === 'proof_submitted';
+    const isCompleted = schedule?.status === 'completed';
+    const isDisputed = schedule?.status === 'disputed';
 
     const handleRespond = async (action: 'accept' | 'refuse') => {
         if (!taskId) return;
@@ -163,11 +166,22 @@ export default function TaskDetailsScreen() {
                             <LocationIcon size={15} color={Colors.TEXT_COLOR} />
                             <Caption3 color={Colors.TEXT_COLOR}>{task.address}</Caption3>
                         </View>
-                        <View style={styles.principalBadge}>
-                            <Caption4 color={Colors.TEXT_COLOR}>
-                                {task.isPrincipal ? <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: wp(4) }}>
-                                    <StarCircleIcon size={15} color='#8E8E93' /><Caption5>{t("Principal")}</Caption5></View> : 'Substitute'}
-                            </Caption4>
+                        <View style={{ flexDirection: 'row', gap: wp(6), alignItems: 'center', flexWrap: 'wrap' }}>
+                            <View style={styles.principalBadge}>
+                                <Caption4 color={Colors.TEXT_COLOR}>
+                                    {task.isPrincipal ? <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: wp(4) }}>
+                                        <StarCircleIcon size={15} color='#8E8E93' /><Caption5>{t("Principal")}</Caption5></View> : 'Substitute'}
+                                </Caption4>
+                            </View>
+                            {isCompleted ? (
+                                <View style={[styles.principalBadge, { backgroundColor: '#E8F5E9' }]}>
+                                    <Caption5 color="#2E7D32">✓ {t("Completed")}</Caption5>
+                                </View>
+                            ) : isProofSubmitted ? (
+                                <View style={[styles.principalBadge, { backgroundColor: '#EBF4FF' }]}>
+                                    <Caption5 color="#0088FF">⏳ {t("Waiting for host approval")}</Caption5>
+                                </View>
+                            ) : null}
                         </View>
                     </View>
                 </View>
@@ -308,6 +322,36 @@ export default function TaskDetailsScreen() {
                             height={hp(52)}
                         />
                     </>
+                ) : isCompleted ? (
+                    <CustomButton
+                        title={t("Cleaning completed")}
+                        disabled
+                        width="100%"
+                        backgroundColor="#E8F5E9"
+                        color="#2E7D32"
+                        borderRadius={wp(8)}
+                        height={hp(52)}
+                    />
+                ) : isProofSubmitted ? (
+                    <CustomButton
+                        title={t("Proof submitted — Waiting for approval")}
+                        disabled
+                        width="100%"
+                        backgroundColor="#F3F3FE"
+                        color={Colors.COLOR_ACTIVE}
+                        borderRadius={wp(8)}
+                        height={hp(52)}
+                    />
+                ) : isDisputed ? (
+                    <CustomButton
+                        title={t("Dispute in progress")}
+                        disabled
+                        width="100%"
+                        backgroundColor="#FFF3E0"
+                        color="#E65100"
+                        borderRadius={wp(8)}
+                        height={hp(52)}
+                    />
                 ) : (
                     <>
                         <CustomButton

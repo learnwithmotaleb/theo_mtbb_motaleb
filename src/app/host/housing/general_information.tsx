@@ -26,7 +26,7 @@ export default function GeneralInformationScreen() {
         name: draft.name,
         type: draft.accommodationType,
         address: draft.address,
-        city: draft.city || 'Paris',
+        city: draft.city || '',
         zip: draft.zipCode,
     });
 
@@ -45,12 +45,12 @@ export default function GeneralInformationScreen() {
         }
         dispatch(
             updateDraft({
-                name: form.name,
+                name: form.name.trim(),
                 // The backend only accepts House | Apartment | Studio | Other.
                 accommodationType: form.type,
-                address: form.address,
-                city: form.city,
-                zipCode: form.zip,
+                address: form.address.trim(),
+                city: form.city.trim(),
+                zipCode: form.zip.trim(),
             }),
         );
         router.push('/host/housing/accommodation_details' as any);
@@ -102,11 +102,12 @@ export default function GeneralInformationScreen() {
                 />
 
 
-                <FormDropdown
+                <FormField
                     label={t("City")}
+                    placeholder="Paris"
                     value={form.city}
-                    options={['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse']}
-                    onChange={(v) => setForm({ ...form, city: v })}
+                    onChangeText={(v) => setForm({ ...form, city: v })}
+                    autoCapitalize="words"
                 />
                 <FormField
                     label={t("Zip code")}
