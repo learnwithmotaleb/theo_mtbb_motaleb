@@ -2,6 +2,7 @@ export type PlatformType = 'airbnb' | 'booking' | 'vrbo' | 'other';
 
 export type CalendarEvent = {
     id: string;
+    scheduleId?: string;          // set only when a cleaning exists
     date: number;        // day of month
     checkIn: string;
     checkOut: string;
@@ -13,6 +14,7 @@ export type CalendarEvent = {
 
 export type ListEvent = {
     id: string;
+    scheduleId?: string;          // set only when a cleaning exists
     checkIn: string;
     checkOut: string;
     platform: PlatformType;

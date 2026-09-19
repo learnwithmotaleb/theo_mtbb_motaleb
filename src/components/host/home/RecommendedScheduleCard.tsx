@@ -7,7 +7,7 @@ import { Colors } from '@/constants/theme';
 import { RecommendedSchedule } from '@/types/hostTypes';
 import { AppImage } from '@/components/shared/AppImage';
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
 type Props = {
@@ -18,7 +18,7 @@ type Props = {
 export function RecommendedScheduleCard({ data, onPress }: Props) {
     const t = useT();
     return (
-        <Pressable style={styles.card} onPress={onPress}>
+        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
             <View style={styles.topRow}>
                 {/* Thumbnail */}
                 <AppImage
@@ -77,7 +77,7 @@ export function RecommendedScheduleCard({ data, onPress }: Props) {
                     </View>
                 </View>
             </View>
-        </Pressable>
+        </TouchableOpacity>
     );
 }
 

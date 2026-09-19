@@ -6,7 +6,7 @@ import { Body2, Caption1, Caption3, Caption4, H2 } from '@/components/typo/Typog
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 import { toHousingItem } from '@/lib/mappers';
-import { useGetHousingQuery } from '@/redux/services/accommodationApi';
+import { useGetAccommodationsQuery } from '@/redux/services/accommodationApi';
 import { HousingItem } from '@/types/taskStatus';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
@@ -82,9 +82,9 @@ export default function HousingScreen() {
     const t = useT();
     const router = useRouter();
 
-    // "Housing" is the pre-scheduling stage: an accommodation exists and may or
-    // may not have a cleaner assigned yet.
-    const { data, isLoading, refetch } = useGetHousingQuery({ page: 1, limit: 50 });
+    // Show ALL accommodations regardless of cleaner assignment or calendar
+    // connection status — every property must always appear here.
+    const { data, isLoading, refetch } = useGetAccommodationsQuery({ page: 1, limit: 50 });
     const { refreshing, onRefresh } = useRefresh([refetch]);
 
     const housing = useMemo(

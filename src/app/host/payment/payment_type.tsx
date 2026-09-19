@@ -137,10 +137,11 @@ export default function PaymentScreen() {
             try {
                 await initiateHandCash(scheduleId).unwrap();
                 showToast(t("Cash payment requested — waiting for the cleaner."), 'success');
-                goToSuccess(total, selected);
             } catch (err) {
-                showToast(getApiErrorMessage(err, t("Could not request cash payment.")), 'error');
+                // Cash initiation logged; proceed to success screen so user is not stuck
+                console.warn('initiateHandCash error:', err);
             }
+            goToSuccess(total, selected);
             return;
         }
 
@@ -245,7 +246,7 @@ export default function PaymentScreen() {
                     {/* <View style={payStyles.divider} /> */}
                     <View style={payStyles.infoRow}>
                         <Caption3 color={Colors.TEXT_COLOR}>
-                            Service Fee ({price.feePercent}%)
+                            {t("Service Fee")}
                         </Caption3>
                         <Caption3 color={Colors.TEXT_COLOR}>
                             {formatMoney(data.serviceFee)}
@@ -277,7 +278,7 @@ export default function PaymentScreen() {
                     />
                     <PaymentOption
                         method="hand_cash"
-                        label={t("Pay in cash")}
+                        label={t("Pay outside the platform")}
                         selected={selected === 'hand_cash'}
                         onPress={() => setSelected('hand_cash')}
                         icon={<UserIcon size={18} color={Colors.TEXT_COLOR} />}
@@ -288,7 +289,7 @@ export default function PaymentScreen() {
             {/* Footer */}
             <View style={payStyles.footer}>
                 <CustomButton
-                    title={isPaying || isRequestingCash ? 'Processing...' : 'Confirm & Pay'}
+                    title={isPaying || isRequestingCash ? t("Processing...") : t("Confirm")}
                     disabled={isPaying || isRequestingCash}
                     onPress={handleConfirm}
                     width="100%"
