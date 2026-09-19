@@ -15,7 +15,6 @@ import { ShieldCheckIcon } from '@/assets/icons/common_icon/ShieldCheckIcon';
 import { CameraIcon } from '@/assets/icons/host_icon/CameraIcon';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { Body4, Caption3, Caption5 } from '@/components/typo/Typography';
-import { IMAGE_COMPONENTS } from '@/constants/image.index';
 
 // Icons — swap with your actual icon components
 
@@ -100,7 +99,7 @@ export default function PersonalInfoScreen() {
                 <View style={styles.avatarRow}>
                     <View style={styles.avatarWrap}>
                         <AppImage
-                            source={imageSource(me?.profileImage, IMAGE_COMPONENTS.hostProfile)}
+                            source={imageSource(me?.profileImage, null)}
                             contentFit="cover"
                             style={styles.avatar}
                         />

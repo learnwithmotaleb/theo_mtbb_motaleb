@@ -14,7 +14,8 @@ import { useSelectRoleMutation } from '@/redux/services/authApi';
 import { setRole } from '@/redux/slices/authSlice';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../utils/responsiveDevice';
 
 type RoleType = 'host' | 'cleaner';
@@ -64,62 +65,69 @@ export default function RoleSelectScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.root}
-        >
-            <Toast />
+        <SafeAreaView style={styles.safe}>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.root}
+            >
+                <Toast />
 
-            <View style={styles.topRow}>
-                <Pressable
-                    onPress={() => router.back()}
-                    style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.6 : 1 }]}
-                    hitSlop={8}
+                <View style={styles.topRow}>
+                    <Pressable
+                        onPress={() => router.back()}
+                        style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.6 : 1 }]}
+                        hitSlop={8}
+                    >
+                        <LeftAngleIcon />
+                    </Pressable>
+                </View>
+
+                <StepIndicator
+                    totalSteps={4}
+                    currentStep={4}
+                    activeColor={Colors.BRAND_PRIMARY}
+                    inactiveColor={Colors.BRAND_PRIMARY}
+                />
+
+                <ScrollView
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    showsVerticalScrollIndicator={false}
                 >
-                    <LeftAngleIcon />
-                </Pressable>
-            </View>
+                    <View style={styles.content}>
+                        <H1 color={Colors.PRIMARY_TEXT} style={styles.title}>
+                            {t("How do you use Gestilo?")}
+                        </H1>
+                        <Caption3 color={Colors.TEXT_COLOR} style={styles.description}>
+                            {t("Choose your profile to get started")}
+                        </Caption3>
 
-            <StepIndicator
-                totalSteps={4}
-                currentStep={4}
-                activeColor={Colors.BRAND_PRIMARY}
-                inactiveColor={Colors.BRAND_PRIMARY}
-            />
-
-            <View style={styles.content}>
-                <H1 color={Colors.PRIMARY_TEXT} style={styles.title}>
-                    {t("How do you use Gestilo?")}
-                </H1>
-                <Caption3 color={Colors.TEXT_COLOR} style={styles.description}>
-                    {t("Choose your profile to get started")}
-                </Caption3>
-
-                {ROLES.map((role) => {
-                    const isSelected = selectedRole === role.id;
-                    return (
-                        <Pressable
-                            key={role.id}
-                            style={[styles.card, isSelected && styles.cardSelected]}
-                            onPress={() => setSelectedRole(role.id)}
-                        >
-                            <View style={styles.radioWrapper}>
-                                <View style={[styles.radio, isSelected && styles.radioSelected]}>
-                                    {isSelected && <View style={styles.radioDot} />}
-                                </View>
-                            </View>
-                            <View style={styles.avatarCircle}>
-                                <role.IconComponent />
-                            </View>
-                            <H3 color={Colors.PRIMARY_TEXT} style={styles.cardTitle}>
-                                {t(role.title)}
-                            </H3>
-                            <Body6 color={Colors.TEXT_COLOR} style={styles.cardDesc}>
-                                {t(role.description)}
-                            </Body6>
-                        </Pressable>
-                    );
-                })}
+                        {ROLES.map((role) => {
+                            const isSelected = selectedRole === role.id;
+                            return (
+                                <Pressable
+                                    key={role.id}
+                                    style={[styles.card, isSelected && styles.cardSelected]}
+                                    onPress={() => setSelectedRole(role.id)}
+                                >
+                                    <View style={styles.radioWrapper}>
+                                        <View style={[styles.radio, isSelected && styles.radioSelected]}>
+                                            {isSelected && <View style={styles.radioDot} />}
+                                        </View>
+                                    </View>
+                                    <View style={styles.avatarCircle}>
+                                        <role.IconComponent />
+                                    </View>
+                                    <H3 color={Colors.PRIMARY_TEXT} style={styles.cardTitle}>
+                                        {t(role.title)}
+                                    </H3>
+                                    <Body6 color={Colors.TEXT_COLOR} style={styles.cardDesc}>
+                                        {t(role.description)}
+                                    </Body6>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                </ScrollView>
 
                 <View style={styles.footer}>
                     <CustomButton
@@ -136,15 +144,18 @@ export default function RoleSelectScreen() {
                         </View>
                     )}
                 </View>
-            </View>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    root: {
+    safe: {
         flex: 1,
         backgroundColor: Colors.APP_BACKGROUND,
+    },
+    root: {
+        flex: 1,
         paddingHorizontal: wp(20),
         paddingTop: hp(30),
     },
@@ -201,7 +212,7 @@ const styles = StyleSheet.create({
         borderRadius: wp(5),
         backgroundColor: Colors.BRAND_PRIMARY,
     },
-    footer: { position: 'relative' },
+    footer: { position: 'relative', paddingBottom: hp(16), paddingTop: hp(8) },
     loaderOverlay: {
         position: 'absolute',
         top: 0, left: 0, right: 0, bottom: 0,
