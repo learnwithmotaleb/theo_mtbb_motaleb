@@ -1,58 +1,434 @@
-# Welcome to your Expo app 👋
+# Gestlio
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Gestlio is a React Native application built with Expo and TypeScript.
 
-## Get started
+This repository contains the source code for the Gestlio mobile application for Android and iOS.
 
-1. Install dependencies
+## Requirements
 
-   ```bash
-   npm install
-   ```
+Before running the project, install the following:
 
-2. Start the app
+* Node.js 20.x
+* npm
+* Git
+* Expo CLI / Expo tooling
+* Android Studio for Android development
+* Xcode for iOS development on macOS
+* EAS CLI for production builds
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Check your installed versions:
 
 ```bash
-npm run reset-project
+node -v
+npm -v
+git --version
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Recommended Node.js version:
 
-### Other setup steps
+```text
+Node.js 20.x
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Clone the Project
 
-## Learn more
+Clone the repository:
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+git clone https://github.com/learnwithmotaleb/theo_mtbb_motaleb.git
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Go to the project directory:
 
-## Join the community
+```bash
+cd theo_mtbb_motaleb
+```
 
-Join our community of developers creating universal apps.
+## Install Dependencies
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-# Air_menage-app
-# theo_mtbb
+For a fresh clone, use:
+
+```bash
+npm ci
+```
+
+`npm ci` installs the dependency versions defined in `package-lock.json`, helping keep the development environment consistent across different computers.
+
+If needed, you can also use:
+
+```bash
+npm install
+```
+
+## Check Expo Project
+
+Run Expo Doctor:
+
+```bash
+npx expo-doctor
+```
+
+Fix any reported dependency or configuration issues before continuing.
+
+## Start the App
+
+Start the Expo development server:
+
+```bash
+npx expo start
+```
+
+To clear the Metro cache:
+
+```bash
+npx expo start -c
+```
+
+After starting Expo, you can run the application using:
+
+* Android device
+* Android emulator
+* iOS simulator on macOS
+* Development build
+* Expo Go when supported
+
+## Android
+
+To run Android:
+
+```bash
+npx expo start
+```
+
+Then press:
+
+```text
+a
+```
+
+Or run:
+
+```bash
+npx expo run:android
+```
+
+Android Studio and the Android SDK must be configured correctly for native Android development.
+
+## iOS
+
+iOS development requires macOS and Xcode.
+
+Run:
+
+```bash
+npx expo start
+```
+
+Then press:
+
+```text
+i
+```
+
+Or run:
+
+```bash
+npx expo run:ios
+```
+
+## Project Structure
+
+Main project folders include:
+
+```text
+assets/
+src/
+scripts/
+utils/
+```
+
+Important configuration files:
+
+```text
+app.json
+eas.json
+package.json
+package-lock.json
+tsconfig.json
+eslint.config.js
+```
+
+Most application source code is located inside:
+
+```text
+src/
+```
+
+## Environment Variables
+
+Environment files are not committed to GitHub.
+
+Files such as the following are ignored:
+
+```text
+.env
+.env.local
+.env.development
+.env.production
+```
+
+If the project requires environment variables, create the required `.env` file locally.
+
+Do not commit API secrets, private keys, passwords, signing credentials, or production secrets to GitHub.
+
+## Expo Configuration
+
+The main Expo configuration is located in:
+
+```text
+app.json
+```
+
+Before creating a new release, verify:
+
+* App version
+* Android version code
+* iOS build number
+* Package name
+* Bundle identifier
+* App icon
+* Splash screen
+* Android permissions
+* iOS permissions
+
+## Android Version
+
+Before uploading a new Android build to Google Play Console, increase the Android `versionCode`.
+
+Example:
+
+```json
+{
+  "expo": {
+    "version": "1.0.5",
+    "android": {
+      "versionCode": 10
+    }
+  }
+}
+```
+
+Every new Google Play release must use a version code higher than the previously uploaded version.
+
+## Android Photo and Video Permissions
+
+Gestlio should not request unnecessary broad media permissions such as:
+
+```text
+android.permission.READ_MEDIA_IMAGES
+android.permission.READ_MEDIA_VIDEO
+```
+
+For user-selected images or videos, use the Android system photo picker whenever possible.
+
+This helps keep the application compliant with Google Play's Photo and Video Permissions policy.
+
+## EAS CLI
+
+Install EAS CLI globally if it is not already installed:
+
+```bash
+npm install -g eas-cli
+```
+
+Login:
+
+```bash
+eas login
+```
+
+Check the logged-in account:
+
+```bash
+eas whoami
+```
+
+## Android Production Build
+
+Create an Android production build:
+
+```bash
+eas build -p android --profile production
+```
+
+This generates an Android App Bundle:
+
+```text
+.aab
+```
+
+The `.aab` file can be uploaded to Google Play Console.
+
+## iOS Production Build
+
+Create an iOS production build:
+
+```bash
+eas build -p ios --profile production
+```
+
+Apple Developer access, certificates, provisioning profiles, and App Store Connect access may be required.
+
+## Check Git Status
+
+Before committing changes:
+
+```bash
+git status
+```
+
+Stage all changes:
+
+```bash
+git add .
+```
+
+Commit:
+
+```bash
+git commit -m "update project"
+```
+
+Push to the main branch:
+
+```bash
+git push origin main
+```
+
+## Pull Latest Changes
+
+Before starting development on another computer, get the latest code:
+
+```bash
+git checkout main
+git pull origin main
+```
+
+Then install the locked dependencies:
+
+```bash
+npm ci
+```
+
+Start the project:
+
+```bash
+npx expo start
+```
+
+## Fresh Setup on Another Computer
+
+For a completely new computer, use:
+
+```bash
+git clone https://github.com/learnwithmotaleb/theo_mtbb_motaleb.git
+cd theo_mtbb_motaleb
+npm ci
+npx expo-doctor
+npx expo start
+```
+
+If environment variables are required, configure them before starting the application.
+
+## Clean Expo Cache
+
+If Metro or Expo behaves unexpectedly:
+
+```bash
+npx expo start -c
+```
+
+If dependencies need to be completely reinstalled:
+
+### Windows PowerShell
+
+```powershell
+Remove-Item -Recurse -Force node_modules
+npm ci
+npx expo start -c
+```
+
+### macOS / Linux
+
+```bash
+rm -rf node_modules
+npm ci
+npx expo start -c
+```
+
+## Native Folders
+
+The generated native folders may not be stored in this repository:
+
+```text
+/android
+/ios
+```
+
+If native projects need to be regenerated:
+
+```bash
+npx expo prebuild
+```
+
+Use this command carefully because it generates native Android and iOS project files based on the Expo configuration.
+
+## Useful Commands
+
+```bash
+npm ci
+npx expo-doctor
+npx expo start
+npx expo start -c
+npx expo run:android
+npx expo run:ios
+eas whoami
+eas build -p android --profile production
+eas build -p ios --profile production
+git status
+git pull origin main
+git push origin main
+```
+
+## Important Notes
+
+* Do not commit `node_modules`.
+* Do not commit `.env` files.
+* Do not commit signing keys or private certificates.
+* Keep `package-lock.json` committed.
+* Increase Android `versionCode` before every Google Play release.
+* Increase the iOS build number before every App Store/TestFlight release when required.
+* Run `npm ci` after cloning the project on another computer.
+* Run `npx expo-doctor` when moving the project to a new development environment.
+* Keep the `main` branch updated with the latest stable project code.
+
+## Repository
+
+GitHub:
+
+```text
+https://github.com/learnwithmotaleb/theo_mtbb_motaleb
+```
+
+## App
+
+**App Name:** Gestlio
+
+**Framework:** React Native + Expo
+
+**Language:** TypeScript
+
+**Platforms:**
+
+* Android
+* iOS
