@@ -69,6 +69,7 @@ export function CalendarView({
     const [month, setMonth] = useState(now.getMonth());
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [cancelVisible, setCancelVisible] = useState(false);
+    const [popup, setPopup] = useState<PopupData>(null);
     const [deleteSchedule, { isLoading: isCancelling }] = useDeleteScheduleMutation();
 
 
