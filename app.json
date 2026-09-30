@@ -8,10 +8,10 @@
     "scheme": "gestlio",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon1.png",
       "bundleIdentifier": "com.gestlio.app",
-      "buildNumber": "10",
-      "supportsTablet": false,
+      "buildNumber": "11",
+      "supportsTablet": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Gestlio needs access to your photos so you can add pictures of your accommodation and upload proof of a completed cleaning.",
         "NSCameraUsageDescription": "Gestlio needs access to your camera so you can photograph your accommodation and the result of a cleaning.",
@@ -28,7 +28,7 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
       "package": "com.gestlio.app",
-      "versionCode": 12,
+      "versionCode": 13,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
@@ -82,8 +82,7 @@
       "expo-web-browser"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},
