@@ -10,10 +10,6 @@ web-build/
 expo-env.d.ts
 
 # Environment variables
-.env
-.env.local
-.env.development
-.env.production
 
 # Native
 .kotlin/
@@ -47,3 +43,4 @@ app-example
 # generated native folders
 /ios
 /android
+config.bat
