@@ -106,7 +106,7 @@ export default function TeamDetailScreen() {
         try {
             await respond({ assignmentId, action }).unwrap();
             showToast(
-                action === 'accept' ? 'Request accepted' : 'Request refused',
+                action === 'accept' ? t('Request accepted') : t('Request refused'),
                 'success',
             );
             router.back();

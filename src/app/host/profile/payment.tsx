@@ -99,9 +99,7 @@ export default function PaymentMethodsScreen() {
                 </Body1>
                 <View style={styles.card}>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.emptyText}>
-                        Your card is entered securely in the Stripe checkout each time you
-                        pay for a cleaning — Gestlio never stores it, so there is nothing
-                        to manage here.
+                        {t("Cleanings are paid directly to the cleaner, outside the app. No bank card is needed or stored in Gestlio.")}
                     </Caption3>
                 </View>
 

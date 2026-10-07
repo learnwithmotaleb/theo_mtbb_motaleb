@@ -7,7 +7,8 @@
  * stores reject apps whose main flows do not work on the reviewer's device.
  * iOS App Transport Security also blocks plain HTTP by default.
  */
-const DEV_API_ORIGIN = 'http://10.10.28.192:6050';
+const DEV_API_ORIGIN = 'https://api.gestlio.com';
+// const DEV_API_ORIGIN = 'http://10.10.28.192:6050';
 
 const requireProdUrl = (value: string | undefined, name: string): string => {
   if (value) return value;

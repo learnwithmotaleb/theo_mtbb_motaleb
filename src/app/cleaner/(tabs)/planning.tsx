@@ -1,5 +1,5 @@
 import { SkeletonList } from '@/components/shared/Skeleton';
-import { useT } from '@/i18n';
+import { useIntlLocale, useT } from '@/i18n';
 import { LocationIcon } from '@/assets/icons/cleaner_icon/LocationIcon';
 import { RightAngleIcon } from '@/assets/icons/common_icon/RightAngleIcon';
 import { DateScrollPicker } from '@/components/cleaner/task/Datescrollpicker';
@@ -7,7 +7,7 @@ import { Body4, Body5, Caption2, Caption3, Caption4, H6 } from '@/components/typ
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 import { accommodationLocation, accommodationPhoto } from '@/lib/mappers';
-import { formatClock } from '@/lib/datetime';
+import { cleaningHours, formatCleaningWindow, formatDayKey } from '@/lib/datetime';
 import { useGetCleanerPlanningQuery } from '@/redux/services/scheduleApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
@@ -26,10 +26,6 @@ type PlanningTask = {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
-const FULL_DAY_NAMES   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const FULL_MONTH_NAMES = ['January','February','March','April','May','June',
-                          'July','August','September','October','November','December'];
-
 function toISO(date: Date): string {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -37,11 +33,7 @@ function toISO(date: Date): string {
     return `${y}-${m}-${d}`;
 }
 
-function formatSectionTitle(dateStr: string) {
-    const [y, mo, d] = dateStr.split('-').map(Number);
-    const date = new Date(y, mo - 1, d);
-    return `${FULL_DAY_NAMES[date.getDay()]} ${date.getDate()} ${FULL_MONTH_NAMES[date.getMonth()]}`;
-}
+
 
 function TaskCard({
     item,
@@ -82,6 +74,7 @@ function TaskCard({
 
 export default function PlanningScreen() {
     const t = useT();
+    const locale = useIntlLocale();
     const router = useRouter();
 
     const todayISO = toISO(new Date());
@@ -108,16 +101,20 @@ export default function PlanningScreen() {
                 id: mission._id,
                 apartmentName: accommodation?.name ?? 'Accommodation',
                 address: accommodationLocation(accommodation),
-                estimation: mission.estimationHours
-                    ? `${mission.estimationHours}h`
-                    : '—',
-                time: `${formatClock(mission.checkOutTime)} – ${formatClock(mission.checkInTime)}`,
+                estimation: (() => {
+                    const hours =
+                        Math.abs(mission.estimationHours ?? 0) ||
+                        cleaningHours(mission.checkInTime, mission.checkOutTime);
+                    return hours ? `${hours}h` : '—';
+                })(),
+                time: formatCleaningWindow(mission.checkInTime, mission.checkOutTime),
                 image: accommodationPhoto(accommodation),
             };
         });
     }, [data, selectedDate]);
 
-    const missionLabel = tasks.length === 1 ? '1 mission' : `${tasks.length} missions`;
+    const missionLabel =
+        tasks.length === 1 ? t('1 mission') : t('{n} missions', { n: tasks.length });
 
     return (
         <SafeAreaView style={styles.safe}>
@@ -144,7 +141,7 @@ export default function PlanningScreen() {
                 
                 <View style={styles.sectionHeader}>
                     <Body5 color={Colors.PRIMARY_TEXT}>
-                        {formatSectionTitle(selectedDate)}
+                        {formatDayKey(selectedDate, undefined, locale)}
                     </Body5>
                     {tasks.length > 0 && (
                         <View style={styles.missionBadge}>

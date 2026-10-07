@@ -6,6 +6,7 @@ import { StepIndicator } from '@/components/shared/StepIndicator';
 import { Body2, Caption3 } from '@/components/typo/Typography';
 import { showToast } from '@/components/shared/Toast';
 import { Colors } from '@/constants/theme';
+import { KEY_OPTIONS } from '@/constants/accommodation';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
 import { useRouter } from 'expo-router';
@@ -42,8 +43,18 @@ export default function PracticalInformationScreen() {
     });
 
     const handleContinue = () => {
+        if (!form.keys) {
+            showToast(t("Choose where the keys are."), 'error');
+            return;
+        }
         if (!form.checkInTime || !form.checkOutTime) {
             showToast(t("Choose the check-in and check-out times."), 'error');
+            return;
+        }
+        // "HH:mm" strings compare in clock order. The cleaning happens between
+        // the guest leaving and the next guest arriving.
+        if (form.checkOutTime >= form.checkInTime) {
+            showToast(t("The guest check-out must be before the next check-in."), 'error');
             return;
         }
         dispatch(updateDraft(form));
@@ -76,14 +87,9 @@ export default function PracticalInformationScreen() {
                 {/* Keys */}
                 <FormDropdown
                     label={t("Where are the keys?")}
+                    placeholder={t("Choose")}
                     value={form.keys}
-                    options={[
-                        'Key box at the entrance',
-                        'With the concierge',
-                        'Under the doormat',
-                        'Neighbor',
-                        'Other',
-                    ]}
+                    options={[...KEY_OPTIONS]}
                     onChange={(v) => setForm({ ...form, keys: v })}
                 />
 
@@ -126,6 +132,7 @@ export default function PracticalInformationScreen() {
 
                 <FormDropdown
                     label={t("Usual frequency")}
+                    placeholder={t("Choose (optional)")}
                     value={form.frequency}
                     options={[
                         'Every day',
@@ -140,16 +147,20 @@ export default function PracticalInformationScreen() {
                 {/* Guest check-out — when a cleaning can start */}
                 <FormDropdown
                     label={t("Guest check-out time")}
+                    placeholder="--:--"
                     value={form.checkOutTime}
                     options={TIME_OPTIONS}
+                    getLabel={(v) => v}
                     onChange={(v) => setForm({ ...form, checkOutTime: v })}
                 />
 
                 {/* Next guest check-in — when a cleaning must be finished */}
                 <FormDropdown
                     label={t("Next guest check-in time")}
+                    placeholder="--:--"
                     value={form.checkInTime}
                     options={TIME_OPTIONS}
+                    getLabel={(v) => v}
                     onChange={(v) => setForm({ ...form, checkInTime: v })}
                 />
             </ScrollView>

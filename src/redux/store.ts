@@ -1,4 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
+import { setupListeners } from '@reduxjs/toolkit/query';
+import { AppState } from 'react-native';
 
 import { baseApi } from './api/baseApi';
 import accommodationDraftReducer from './slices/accommodationDraftSlice';
@@ -40,6 +42,17 @@ export const store = configureStore({
       // catches.
       immutableCheck: { ignoredPaths: ['accommodationDraft.photos'] },
     }).concat(baseApi.middleware),
+});
+
+// RTK Query's focus listeners are browser-only; on a phone, "focus" is the app
+// returning to the foreground. Queries opted into `refetchOnFocus` (request
+// badges, lists another device changes) refresh then.
+setupListeners(store.dispatch, (dispatch, { onFocus, onFocusLost }) => {
+  const subscription = AppState.addEventListener('change', (state) => {
+    if (state === 'active') dispatch(onFocus());
+    else dispatch(onFocusLost());
+  });
+  return () => subscription.remove();
 });
 
 export type RootState = ReturnType<typeof store.getState>;

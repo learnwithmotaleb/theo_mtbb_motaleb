@@ -61,8 +61,7 @@ export default function YouAreReadyScreen() {
                     <View style={styles.nextStepText}>
                         <Body7 color={Colors.PRIMARY_TEXT}>{t("Next step")}</Body7>
                         <Caption3 color={Colors.TEXT_COLOR}>
-                            Explore your personalized dashboard to complete your schedule and set your
-                            availability for upcoming missions.
+                            {t("Explore your personalized dashboard to complete your schedule and set your availability for upcoming missions.")}
                         </Caption3>
                     </View>
                 </View>

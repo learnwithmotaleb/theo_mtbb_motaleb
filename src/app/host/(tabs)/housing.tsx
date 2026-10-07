@@ -9,8 +9,10 @@ import { toHousingItem } from '@/lib/mappers';
 import { useGetAccommodationsQuery } from '@/redux/services/accommodationApi';
 import { HousingItem } from '@/types/taskStatus';
 import { AppImage } from '@/components/shared/AppImage';
-import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useMemo } from 'react';
+import { useAppDispatch } from '@/redux/hooks';
+import { resetDraft } from '@/redux/slices/accommodationDraftSlice';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
@@ -22,10 +24,7 @@ function HousingCard({ item }: { item: HousingItem }) {
     const handlePress = () => {
         router.push({
             pathname: '/host/housing/accommodation_details_view' as any,
-            params: {
-                id: item.id,
-                hasCleaner: item.cleaners.length > 0 ? '1' : '0',
-            },
+            params: { id: item.id },
         });
     };
 
@@ -64,7 +63,19 @@ function HousingCard({ item }: { item: HousingItem }) {
                                     style={styles.avatar}
                                     contentFit="cover"
                                 />
-                                <Caption3 color={Colors.PRIMARY_TEXT}>{c.name}</Caption3>
+                                <View style={{ flex: 1 }}>
+                                    <Caption3 color={Colors.PRIMARY_TEXT}>{c.name}</Caption3>
+                                    {/* A pending invitation is not an active cleaner yet. */}
+                                    {c.status === 'pending' ? (
+                                        <Caption4 color={Colors.COLOR_ORANGE}>
+                                            {t("Invitation sent – waiting for acceptance")}
+                                        </Caption4>
+                                    ) : (
+                                        <Caption4 color={Colors.COLOR_ACTIVE}>
+                                            {t("Assigned")}
+                                        </Caption4>
+                                    )}
+                                </View>
                             </View>
                         ))}
                     </View>
@@ -81,11 +92,20 @@ function HousingCard({ item }: { item: HousingItem }) {
 export default function HousingScreen() {
     const t = useT();
     const router = useRouter();
+    const dispatch = useAppDispatch();
 
     // Show ALL accommodations regardless of cleaner assignment or calendar
     // connection status — every property must always appear here.
     const { data, isLoading, refetch } = useGetAccommodationsQuery({ page: 1, limit: 50 });
     const { refreshing, onRefresh } = useRefresh([refetch]);
+
+    // A cleaner accepting an invitation happens on another device, so the
+    // list refreshes whenever the tab comes back into view.
+    useFocusEffect(
+        useCallback(() => {
+            refetch();
+        }, [refetch]),
+    );
 
     const housing = useMemo(
         () => (data?.data ?? []).map(toHousingItem),
@@ -99,9 +119,12 @@ export default function HousingScreen() {
                 <H2 color={Colors.PRIMARY_TEXT}>{t("Housing")}</H2>
                 <Pressable
                     style={styles.plusBtn}
-                    onPress={() =>
-                        router.push('/host/housing/general_information' as any)
-                    }
+                    onPress={() => {
+                        // A new property starts blank, never with the answers
+                        // of a wizard that was left half-way.
+                        dispatch(resetDraft());
+                        router.push('/host/housing/general_information' as any);
+                    }}
                 >
                     <Caption3 color={Colors.PRIMARY_TEXT} style={styles.plusText}>+</Caption3>
                     {/* <PlusCircleIcon size={24}/> */}

@@ -71,6 +71,7 @@ function Dropdown({
     options: string[];
     onChange: (v: string) => void;
 }) {
+    const t = useT();
     const [open, setOpen] = useState(false);
 
     return (
@@ -79,7 +80,9 @@ function Dropdown({
                 style={styles.dropdownTrigger}
                 onPress={() => setOpen(true)}
             >
-                <Body6 color={Colors.PLACEHOLDER_TEXT}>{value}</Body6>
+                <Body6 color={value ? Colors.PRIMARY_TEXT : Colors.PLACEHOLDER_TEXT}>
+                    {value ? t(value) : t("Choose a type")}
+                </Body6>
                 <DownArrowIcon size={20} color={Colors.TEXT_COLOR} />
             </Pressable>
 
@@ -107,7 +110,7 @@ function Dropdown({
                                                 : Colors.TEXT_COLOR
                                         }
                                     >
-                                        {item}
+                                        {t(item)}
                                     </Body6>
                                 </Pressable>
                             )}
@@ -126,14 +129,22 @@ export default function PropertyScreen() {
     const draft = useAppSelector((state) => state.accommodationDraft);
 
     const [type, setType] = useState<string>(draft.accommodationType);
-    const [bedrooms, setBedrooms] = useState(Number(draft.numberOfRooms) || 2);
-    const [bathrooms, setBathrooms] = useState(2);
-    const [toilets, setToilets] = useState(2);
+    const [bedrooms, setBedrooms] = useState(Number(draft.numberOfRooms) || 1);
+    const [bathrooms, setBathrooms] = useState(1);
+    const [toilets, setToilets] = useState(1);
     const [surface, setSurface] = useState(draft.surface);
     const [surfaceError, setSurfaceError] = useState('');
     const [isLoading] = useState(false);
 
     const handleContinue = () => {
+        if (!type) {
+            setSurfaceError('Choose the type of accommodation.');
+            return;
+        }
+        if (!bedrooms) {
+            setSurfaceError('Choose the number of rooms.');
+            return;
+        }
         if (!Number(surface)) {
             setSurfaceError('Surface area is required');
             return;
@@ -195,7 +206,7 @@ export default function PropertyScreen() {
                 </View>
                 {surfaceError ? (
                     <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                        {surfaceError}
+                        {t(surfaceError)}
                     </Caption1>
                 ) : null}
             </ScrollView>

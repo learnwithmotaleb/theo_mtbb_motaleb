@@ -73,7 +73,7 @@ export default function HostProfileScreen() {
                 await respond({ assignmentId: request.id, action }).unwrap();
             }
             showToast(
-                action === 'accept' ? 'Request accepted' : 'Request refused',
+                action === 'accept' ? t('Request accepted') : t('Request refused'),
                 'success',
             );
             router.back();

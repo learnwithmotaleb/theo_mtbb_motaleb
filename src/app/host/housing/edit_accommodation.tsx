@@ -1,6 +1,16 @@
 import { SkeletonDetail } from '@/components/shared/Skeleton';
 import { useT } from '@/i18n';
+import { CityField } from '@/components/host/housing/CityField';
 import { FormDropdown } from '@/components/host/housing/FormDropdown';
+import {
+    ACCOMMODATION_TYPES,
+    hasFloorAndElevator,
+    KEY_OPTIONS,
+    ROOM_OPTIONS,
+    roomsToLabel,
+    roomsToNumber,
+} from '@/constants/accommodation';
+import { checkPostalCode, POSTAL_CODE_PATTERN } from '@/lib/frenchGeo';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { showToast } from '@/components/shared/Toast';
@@ -57,19 +67,6 @@ function InputBox({ placeholder, value, onChangeText, keyboardType, multiline, s
     );
 }
 
-// The dropdown speaks "3 rooms (T3)"; the API wants the number.
-const ROOM_OPTIONS = [
-    '1 room (T1)',
-    '2 rooms (T2)',
-    '3 rooms (T3)',
-    '4 rooms (T4)',
-    '5+ rooms',
-];
-const roomsToNumber = (label: string) => String(parseInt(label, 10) || 1);
-const roomsToLabel = (value?: number | string) =>
-    ROOM_OPTIONS.find((option) => parseInt(option, 10) === Number(value)) ??
-    ROOM_OPTIONS[2];
-
 export default function EditAccommodationScreen() {
     const t = useT();
     const router = useRouter();
@@ -81,26 +78,30 @@ export default function EditAccommodationScreen() {
     const [updateAccommodation, { isLoading: isSaving }] =
         useUpdateAccommodationMutation();
 
-    const [elevator, setElevator] = useState<'yes' | 'no'>('yes');
+    const [elevator, setElevator] = useState<'yes' | 'no'>('no');
+    // Postal codes of a city picked from the suggestions (empty when typed).
+    const [cityCodes, setCityCodes] = useState<string[]>([]);
+    const [checking, setChecking] = useState(false);
     // Only set when the host picks a new picture — otherwise the existing
     // photos are left untouched.
     const [newPhoto, setNewPhoto] = useState<PickedPhoto | null>(null);
     const [form, setForm] = useState({
         name: '',
-        type: 'Apartment',
+        type: '',
         address: '',
         city: '',
         zip: '',
-        rooms: ROOM_OPTIONS[2],
+        rooms: '',
         surface: '',
         floor: '',
         rate: '',
         notes: '',
-        keys: 'Key box at the entrance',
+        keys: '',
         accessCode: '',
         instructions: '',
-        frequency: 'Every week',
+        frequency: '',
     });
+    const askFloor = hasFloorAndElevator(form.type);
 
     // Fill the form once the accommodation arrives.
     useEffect(() => {
@@ -108,7 +109,7 @@ export default function EditAccommodationScreen() {
         setElevator(accommodation.hasElevator ? 'yes' : 'no');
         setForm({
             name: accommodation.name ?? '',
-            type: accommodation.accommodationType ?? 'Apartment',
+            type: accommodation.accommodationType ?? '',
             address: accommodation.address ?? '',
             city: accommodation.city ?? '',
             zip: accommodation.zipCode ?? '',
@@ -120,10 +121,10 @@ export default function EditAccommodationScreen() {
                     ? String(accommodation.cleaningRate)
                     : '',
             notes: accommodation.notes ?? '',
-            keys: accommodation.keys ?? 'Key box at the entrance',
+            keys: accommodation.keys ?? '',
             accessCode: accommodation.accessCode ?? '',
             instructions: accommodation.instructions ?? '',
-            frequency: accommodation.frequency ?? 'Every week',
+            frequency: accommodation.frequency ?? '',
         });
     }, [accommodation]);
 
@@ -147,9 +148,29 @@ export default function EditAccommodationScreen() {
     };
 
     const handleSave = async () => {
-        if (!id) return;
+        if (!id || isSaving || checking) return;
         if (form.name.trim().length < 2 || form.address.trim().length < 5) {
             showToast(t("Name and address are required."), 'error');
+            return;
+        }
+        if (!form.city.trim()) {
+            showToast(t("Enter a city."), 'error');
+            return;
+        }
+        const zip = form.zip.trim();
+        if (!POSTAL_CODE_PATTERN.test(zip)) {
+            showToast(t("Enter a valid 5-digit postal code."), 'error');
+            return;
+        }
+        setChecking(true);
+        const postal = await checkPostalCode(form.city, zip, cityCodes);
+        setChecking(false);
+        if (postal === 'mismatch') {
+            showToast(t('This postal code does not match {city}.', { city: form.city.trim() }), 'error');
+            return;
+        }
+        if (postal === 'unknown_postal_code') {
+            showToast(t("This postal code does not exist."), 'error');
             return;
         }
         // The rate may still carry the currency symbol from the old copy.
@@ -164,8 +185,9 @@ export default function EditAccommodationScreen() {
                 zipCode: form.zip.trim(),
                 numberOfRooms: roomsToNumber(form.rooms),
                 surface: form.surface,
-                floor: form.floor.trim(),
-                hasElevator: elevator === 'yes',
+                // A house has no floor or elevator.
+                floor: askFloor ? form.floor.trim() : '',
+                hasElevator: askFloor ? elevator === 'yes' : false,
                 cleaningRate: rate,
                 notes: form.notes.trim(),
                 keys: form.keys,
@@ -220,7 +242,7 @@ export default function EditAccommodationScreen() {
                 {/* Name */}
                 <FieldGroup label={t("Accommodation name")}>
                     <InputBox
-                        placeholder={t("Appartement T3 – City Center")}
+                        placeholder={t("e.g. Apartment in the city centre")}
                         value={form.name}
                         onChangeText={(v: string) => setForm({ ...form, name: v })}
                     />
@@ -229,61 +251,73 @@ export default function EditAccommodationScreen() {
                 {/* Type */}
                 <FormDropdown
                     label={t("Type of accommodation")}
+                    placeholder={t("Choose a type")}
                     value={form.type}
-                    options={['Apartment', 'House', 'Studio', 'Other']}
+                    options={[...ACCOMMODATION_TYPES]}
                     onChange={(v) => setForm({ ...form, type: v })}
                 />
 
                 {/* Address */}
                 <FieldGroup label={t("Address")}>
                     <InputBox
-                        placeholder="15 Rue de la Paix, 75002 Paris"
+                        placeholder={t("Street number and name")}
                         value={form.address}
                         onChangeText={(v: string) => setForm({ ...form, address: v })}
                     />
                 </FieldGroup>
 
-                {/* City */}
-                <FieldGroup label={t("City")}>
-                    <InputBox
-                        placeholder="Paris"
-                        value={form.city}
-                        onChangeText={(v: string) => setForm({ ...form, city: v })}
-                    />
-                </FieldGroup>
+                {/* City — any French city, checked against the postal code */}
+                <CityField
+                    label={t("City")}
+                    value={form.city}
+                    onChange={(city, commune) => {
+                        const codes = commune?.postalCodes ?? [];
+                        setCityCodes(codes);
+                        setForm((prev) => ({
+                            ...prev,
+                            city,
+                            zip: codes.length === 1 ? codes[0] : prev.zip,
+                        }));
+                    }}
+                />
 
                 {/* Zip */}
                 <FieldGroup label={t("Zip code")}>
                     <InputBox
-                        placeholder="75002"
+                        placeholder={t("5 digits")}
                         value={form.zip}
                         keyboardType="number-pad"
-                        onChangeText={(v: string) => setForm({ ...form, zip: v })}
+                        onChangeText={(v: string) =>
+                            setForm({ ...form, zip: v.replace(/\D/g, '').slice(0, 5) })
+                        }
                     />
                 </FieldGroup>
 
                 {/* Rooms */}
                 <FormDropdown
                     label={t("Number of rooms")}
+                    placeholder={t("Choose")}
                     value={form.rooms}
-                    options={ROOM_OPTIONS}
+                    options={[...ROOM_OPTIONS]}
                     onChange={(v) => setForm({ ...form, rooms: v })}
                 />
 
                 {/* Surface */}
                 <FieldGroup label={t("Surface (m²)")}>
                     <InputBox
-                        placeholder="65"
+                        placeholder={t("Surface in m²")}
                         value={form.surface}
                         keyboardType="number-pad"
                         onChangeText={(v: string) => setForm({ ...form, surface: v })}
                     />
                 </FieldGroup>
 
+                {askFloor && (
+                <>
                 {/* Floor */}
                 <FieldGroup label={t("Floor")}>
                     <InputBox
-                        placeholder={t("3rd Floor")}
+                        placeholder={t("e.g. 3")}
                         value={form.floor}
                         onChangeText={(v: string) => setForm({ ...form, floor: v })}
                     />
@@ -307,17 +341,19 @@ export default function EditAccommodationScreen() {
                                 <Caption3
                                     color={elevator === opt ? Colors.PRIMARY_TEXT : Colors.TEXT_COLOR}
                                 >
-                                    {opt === 'yes' ? 'Yes' : 'No'}
+                                    {opt === 'yes' ? t('Yes') : t('No')}
                                 </Caption3>
                             </Pressable>
                         ))}
                     </View>
                 </View>
+                </>
+                )}
 
                 {/* Cleaning rate */}
                 <FieldGroup label={t("Cleaning rate")}>
                     <InputBox
-                        placeholder="55,00 €"
+                        placeholder={t("Amount")}
                         value={form.rate}
                         keyboardType="decimal-pad"
                         onChangeText={(v: string) => setForm({ ...form, rate: v })}
@@ -341,8 +377,9 @@ export default function EditAccommodationScreen() {
                 {/* Keys */}
                 <FormDropdown
                     label={t("Where are the keys?")}
+                    placeholder={t("Choose")}
                     value={form.keys}
-                    options={['Key box at the entrance', 'With the concierge', 'Under the doormat', 'Neighbor', 'Other']}
+                    options={[...KEY_OPTIONS]}
                     onChange={(v) => setForm({ ...form, keys: v })}
                 />
 
@@ -369,6 +406,7 @@ export default function EditAccommodationScreen() {
                 {/* Frequency */}
                 <FormDropdown
                     label={t("Usual frequency")}
+                    placeholder={t("Choose (optional)")}
                     value={form.frequency}
                     options={['Every day', 'Every week', 'Every 2 weeks', 'Every month', 'On demand']}
                     onChange={(v) => setForm({ ...form, frequency: v })}
@@ -378,8 +416,8 @@ export default function EditAccommodationScreen() {
             {/* Save button */}
             <View style={editStyles.footer}>
                 <CustomButton
-                    title={isSaving ? 'Saving...' : 'Save'}
-                    disabled={isSaving}
+                    title={isSaving || checking ? t('Saving...') : t('Save')}
+                    disabled={isSaving || checking}
                     onPress={handleSave}
                     width="100%"
                     backgroundColor={Colors.BRAND_PRIMARY}

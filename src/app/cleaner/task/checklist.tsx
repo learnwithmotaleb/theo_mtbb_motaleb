@@ -11,7 +11,7 @@ import { showToast } from '@/components/shared/Toast';
 import { Caption2, Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { formatClock } from '@/lib/datetime';
+import { formatCleaningWindow } from '@/lib/datetime';
 import { accommodationLocation, accommodationPhoto } from '@/lib/mappers';
 import { resolveAssetUrl } from '@/lib/config';
 import {
@@ -61,7 +61,7 @@ export default function ChecklistScreen() {
             image: accommodationPhoto(accommodation),
             apartmentName: accommodation?.name ?? 'Accommodation',
             address: accommodationLocation(accommodation),
-            time: `${formatClock(schedule?.checkOutTime)} – ${formatClock(schedule?.checkInTime)}`,
+            time: formatCleaningWindow(schedule?.checkInTime, schedule?.checkOutTime),
         };
     }, [schedule]);
 

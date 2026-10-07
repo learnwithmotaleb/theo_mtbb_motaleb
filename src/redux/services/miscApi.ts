@@ -1,5 +1,4 @@
 import { baseApi } from '../api/baseApi';
-import { PLATFORM_FEE_PERCENT } from '@/lib/pricing';
 import type { ApiEnvelope } from '../types';
 
 // ─── Support (Help & Support form) ────────────────────────────────────────────
@@ -124,13 +123,3 @@ export const {
   useRegisterDeviceTokenMutation,
   useRemoveDeviceTokenMutation,
 } = miscApi;
-
-/**
- * Fee percentage to price with. Falls back to the backend's default while the
- * request is in flight (or if it fails), so totals never render as a 0% fee.
- */
-export const usePlatformFeePercent = (): number => {
-  const { data } = useGetPublicSettingsQuery();
-  const pct = data?.platformCommission;
-  return typeof pct === 'number' && Number.isFinite(pct) ? pct : PLATFORM_FEE_PERCENT;
-};

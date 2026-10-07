@@ -54,6 +54,8 @@ type Props = {
     events?: CalendarEvent[];
     /** Lets the parent refetch when the user pages to another month. */
     onMonthChange?: (year: number, month: number) => void;
+    /** The property on screen, so "+" schedules a cleaning for it. */
+    accommodationId?: string;
 };
 
 export function CalendarView({
@@ -61,6 +63,7 @@ export function CalendarView({
     hasData,
     events = [],
     onMonthChange,
+    accommodationId,
 }: Props) {
     const t = useT();
     const router = useRouter();
@@ -233,7 +236,7 @@ export function CalendarView({
                                                 // No cleaning yet → show + button to schedule one
                                                 <Pressable
                                                     style={styles.plusIcon}
-                                                    onPress={() => router.push('/host/home/recommended_cleaning' as any)}
+                                                    onPress={() => router.push({ pathname: '/host/home/schedule_cleaning', params: { accommodationId } } as any)}
                                                 >
                                                     <PlusIcon color={Colors.COLOR_ACTIVE} />
                                                 </Pressable>

@@ -1,18 +1,14 @@
-// Cleaning price breakdown — mirrors the backend escrow model so the UI never
-// shows a total different from what the host is actually charged.
+// Cleaning price breakdown shown to the host.
 //
-// Backend (payment.service.ts):
-//   cleanerAmount = agreed pricePerCleaning / cleaningRate  <- paid out in full
-//   platformFee   = round(cleanerAmount * feePercent / 100) <- platform keeps this
-//   amount        = cleanerAmount + platformFee             <- what the host pays
-//
-// The fee is added ON TOP of the cleaner's rate, never deducted from it: the
-// cleaner is paid their full rate and only ever sees that number.
+// Payment is settled directly between the host and the cleaner, outside the
+// app, so Gestlio adds no service fee: the total is the cleaner's agreed rate
+// (assignment pricePerCleaning, else the accommodation's cleaningRate). The
+// fee field stays in the breakdown so a percentage can be reinstated in one
+// place if the business model changes.
 
-// Fallback only — the live value comes from GET /settings/public.
 import { intlLocale } from '@/i18n';
 
-export const PLATFORM_FEE_PERCENT = 5;
+export const PLATFORM_FEE_PERCENT = 0;
 
 export interface SchedulePrice {
   /** Total the host is charged: cleaner's rate + service fee. */

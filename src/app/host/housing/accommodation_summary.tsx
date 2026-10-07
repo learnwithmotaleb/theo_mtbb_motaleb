@@ -7,6 +7,12 @@ import { Body2, Body5, Caption2, Caption3 } from '@/components/typo/Typography';
 import { showToast } from '@/components/shared/Toast';
 import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
+import {
+    elevatorText,
+    hasFloorAndElevator,
+    keysText,
+    roomsText,
+} from '@/constants/accommodation';
 import { getApiErrorMessage } from '@/lib/apiError';
 
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
@@ -57,35 +63,40 @@ export default function AccommodationSummaryScreen() {
         () => ({
             general: {
                 name: draft.name,
+                type: draft.accommodationType ? t(draft.accommodationType) : '—',
                 address: [draft.address, draft.zipCode, draft.city]
                     .filter(Boolean)
                     .join(', '),
             },
             details: {
-                rooms: `${draft.numberOfRooms} rooms`,
+                rooms: roomsText(draft.numberOfRooms, t) || '—',
                 surface: draft.surface ? `${draft.surface} m²` : '—',
+                // Only apartments and studios are asked about floor and elevator.
+                showFloor: hasFloorAndElevator(draft.accommodationType),
                 floor: draft.floor || '—',
-                elevator: draft.hasElevator ? 'With elevator' : 'No elevator',
+                elevator: elevatorText(draft.hasElevator, t),
                 cleaningRate: formatMoney(Number(draft.cleaningRate) || 0),
             },
             photo: draft.photos[0]
                 ? { uri: draft.photos[0].uri }
                 : IMAGE_COMPONENTS.apartment,
             practical: {
-                keys: draft.keys || '—',
-                accessCode: draft.accessCode || '–',
+                keys: keysText(draft.keys, t) || '—',
+                accessCode: draft.accessCode || '—',
                 instructions: draft.instructions || '—',
-                frequency: draft.frequency || '—',
-                times: `${draft.checkOutTime} → ${draft.checkInTime}`,
+                frequency: draft.frequency ? t(draft.frequency) : '—',
+                checkOut: draft.checkOutTime || '—',
+                checkIn: draft.checkInTime || '—',
             },
         }),
-        [draft],
+        [draft, t, formatMoney],
     );
 
     const handleSubmit = async () => {
+        if (isSaving) return;
         const problem = validateDraft(draft);
         if (problem) {
-            showToast(problem, 'error');
+            showToast(t(problem), 'error');
             return;
         }
 
@@ -95,12 +106,22 @@ export default function AccommodationSummaryScreen() {
             if (draft.editingId) {
                 await updateAccommodation({ id: draft.editingId, body }).unwrap();
                 showToast(t("Accommodation updated"), 'success');
-            } else {
-                await createAccommodation(body).unwrap();
-                showToast(t("Accommodation created"), 'success');
+                dispatch(resetDraft());
+                router.replace('/host/(tabs)/housing' as any);
+                return;
             }
+            const created = await createAccommodation(body).unwrap();
+            showToast(t("Accommodation created"), 'success');
             dispatch(resetDraft());
-            router.replace('/host/(tabs)/housing' as any);
+            // Next step of the setup: the property page, whose main action is
+            // now "Assign a cleaner". Its back button returns to the list.
+            router.dismissTo('/host/(tabs)/housing' as any);
+            if (created?._id) {
+                router.push({
+                    pathname: '/host/housing/accommodation_details_view',
+                    params: { id: created._id },
+                } as any);
+            }
         } catch (err) {
             showToast(
                 getApiErrorMessage(err, t("Could not save the accommodation.")),
@@ -113,7 +134,7 @@ export default function AccommodationSummaryScreen() {
         <SafeAreaView style={styles.safe}>
             
             <View style={{ paddingHorizontal: wp(20), }}>
-                <SectionTitle title={t("Practical information")} />
+                <SectionTitle title={t("Summary")} />
             </View>
             <View style={{ marginVertical: hp(20) }}>
                 <StepIndicator totalSteps={5} currentStep={5} activeColor='#0088FF' inactiveColor='#0088FF' />
@@ -143,6 +164,9 @@ export default function AccommodationSummaryScreen() {
                         {SUMMARY.general.name}
                     </Caption3>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
+                        {SUMMARY.general.type}
+                    </Caption3>
+                    <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
                         {SUMMARY.general.address}
                     </Caption3>
                 </SummaryCard>
@@ -150,19 +174,23 @@ export default function AccommodationSummaryScreen() {
                 {/* Accommodation details */}
                 <SummaryCard title={t("Accommodation details:")}>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        {SUMMARY.details.rooms}
+                        {t("Rooms")}: {SUMMARY.details.rooms}
                     </Caption3>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        {SUMMARY.details.surface}
+                        {t("Surface")}: {SUMMARY.details.surface}
                     </Caption3>
-                    <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        {SUMMARY.details.floor}
-                    </Caption3>
-                    <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        {SUMMARY.details.elevator}
-                    </Caption3>
+                    {SUMMARY.details.showFloor && (
+                        <>
+                            <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
+                                {t("Floor")}: {SUMMARY.details.floor}
+                            </Caption3>
+                            <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
+                                {t("Elevator")}: {SUMMARY.details.elevator}
+                            </Caption3>
+                        </>
+                    )}
                     <Caption3 color={"#1070B7"}>
-                        Cleaning rate : {SUMMARY.details.cleaningRate}
+                        {t("Cleaning rate")}: {SUMMARY.details.cleaningRate}
                     </Caption3>
                 </SummaryCard>
 
@@ -178,19 +206,22 @@ export default function AccommodationSummaryScreen() {
                 {/* Practical information */}
                 <SummaryCard title={t("Practical information:")}>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        Keys: {SUMMARY.practical.keys}
+                        {t("Keys")}: {SUMMARY.practical.keys}
                     </Caption3>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        Access code: {SUMMARY.practical.accessCode}
+                        {t("Access code")}: {SUMMARY.practical.accessCode}
                     </Caption3>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        Instructions: {SUMMARY.practical.instructions}
+                        {t("Instructions")}: {SUMMARY.practical.instructions}
                     </Caption3>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        Frequency: {SUMMARY.practical.frequency}
+                        {t("Frequency")}: {SUMMARY.practical.frequency}
                     </Caption3>
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        Check-out / check-in: {SUMMARY.practical.times}
+                        {t("Guest check-out time")}: {SUMMARY.practical.checkOut}
+                    </Caption3>
+                    <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
+                        {t("Next guest check-in time")}: {SUMMARY.practical.checkIn}
                     </Caption3>
                 </SummaryCard>
             </ScrollView>
@@ -200,10 +231,10 @@ export default function AccommodationSummaryScreen() {
                 <CustomButton
                     title={
                         isSaving
-                            ? 'Saving...'
+                            ? t('Saving...')
                             : draft.editingId
-                              ? 'Save the changes'
-                              : 'Create the accommodation'
+                              ? t('Save the changes')
+                              : t('Create the accommodation')
                     }
                     disabled={isSaving}
                     onPress={handleSubmit}
@@ -214,7 +245,8 @@ export default function AccommodationSummaryScreen() {
                     height={hp(52)}
                 />
                 <Pressable
-                    onPress={() => router.push('/host/housing/general_information' as any)}
+                    // Back to step 1 instead of stacking a second copy of the wizard.
+                    onPress={() => router.dismissTo('/host/housing/general_information' as any)}
                 >
                     <Caption2 color={"#1070B7"}>{t("Edit")}</Caption2>
                 </Pressable>

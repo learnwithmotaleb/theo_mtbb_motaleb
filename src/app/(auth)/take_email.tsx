@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../utils/responsiveDevice';
-import { validateEmail } from '../../../utils/validation';
+import { normalizeEmail, validateEmail } from '../../../utils/validation';
 
 export default function TakeEmailScreen() {
     const t = useT();
@@ -42,14 +42,15 @@ export default function TakeEmailScreen() {
     },
     onSubmit: async (values) => {
       try {
-        const res = await signup({ email: values[FORM_FIELDS.EMAIL] }).unwrap();
+        const email = normalizeEmail(values[FORM_FIELDS.EMAIL]);
+        const res = await signup({ email }).unwrap();
 
         if (res.success) {
           showToast(t("OTP sent to your email"), 'success');
           setTimeout(() => {
             router.push({
               pathname: '/(auth)/verification_email',
-              params: { email: values[FORM_FIELDS.EMAIL] },
+              params: { email },
             } as any);
           }, 800);
         }

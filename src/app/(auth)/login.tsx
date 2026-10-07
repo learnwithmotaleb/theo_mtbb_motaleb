@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../utils/responsiveDevice';
-import { validateEmail, validatePassword } from '../../../utils/validation';
+import { normalizeEmail, validateEmail, validatePassword } from '../../../utils/validation';
 
 export default function LoginScreen() {
     const t = useT();
@@ -53,7 +53,7 @@ export default function LoginScreen() {
             try {
                 // The mutation resolves only after the session is ready.
                 const res = await signin({
-                    email: values[FORM_FIELDS.EMAIL],
+                    email: normalizeEmail(values[FORM_FIELDS.EMAIL]),
                     password: values[FORM_FIELDS.PASSWORD],
                 }).unwrap();
 

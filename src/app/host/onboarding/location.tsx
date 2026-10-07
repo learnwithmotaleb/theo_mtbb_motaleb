@@ -11,6 +11,8 @@ import {
     View
 } from 'react-native';
 import { SearchIcon } from '@/assets/icons/common_icon/SearchIcon';
+import { CityField } from '@/components/host/housing/CityField';
+import { checkPostalCode, POSTAL_CODE_PATTERN } from '@/lib/frenchGeo';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { Body5, Body6, Caption1, H2 } from '@/components/typo/Typography';
@@ -28,8 +30,12 @@ export default function LocationScreen() {
     const [zipCode, setZipCode] = useState(draft.zipCode);
     const [address2, setAddress2] = useState(draft.floor);
     const [addressError, setAddressError] = useState('');
+    // Postal codes of a city picked from the suggestions.
+    const [cityCodes, setCityCodes] = useState<string[]>(draft.cityPostalCodes);
+    const [checking, setChecking] = useState(false);
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
+        if (checking) return;
         // The backend refuses an accommodation without city and zip code, so
         // they are asked for here rather than parsed out of the address.
         if (address.trim().length < 5) {
@@ -40,8 +46,20 @@ export default function LocationScreen() {
             setAddressError('City is required');
             return;
         }
-        if (!zipCode.trim()) {
-            setAddressError('Zip code is required');
+        if (!POSTAL_CODE_PATTERN.test(zipCode.trim())) {
+            setAddressError('Enter a valid 5-digit postal code.');
+            return;
+        }
+        // The postal code must belong to the city.
+        setChecking(true);
+        const postal = await checkPostalCode(city, zipCode.trim(), cityCodes);
+        setChecking(false);
+        if (postal === 'mismatch') {
+            setAddressError(t('This postal code does not match {city}.', { city: city.trim() }));
+            return;
+        }
+        if (postal === 'unknown_postal_code') {
+            setAddressError('This postal code does not exist.');
             return;
         }
         setAddressError('');
@@ -50,6 +68,7 @@ export default function LocationScreen() {
                 address: address.trim(),
                 city: city.trim(),
                 zipCode: zipCode.trim(),
+                cityPostalCodes: cityCodes,
                 floor: address2.trim(),
             }),
         );
@@ -90,7 +109,7 @@ export default function LocationScreen() {
                 </View>
                 {addressError ? (
                     <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                        {addressError}
+                        {t(addressError)}
                     </Caption1>
                 ) : null}
 
@@ -107,21 +126,19 @@ export default function LocationScreen() {
                     </View>
                 </View>
 
+                {/* Any French city, with live suggestions */}
+                <CityField
+                    label={t("City")}
+                    value={city}
+                    onChange={(name, commune) => {
+                        const codes = commune?.postalCodes ?? [];
+                        setCity(name);
+                        setCityCodes(codes);
+                        if (codes.length === 1) setZipCode(codes[0]);
+                    }}
+                />
+
                 <View style={styles.cityRow}>
-                    <View style={{ flex: 1 }}>
-                        <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                            {t("City")}
-                        </Body5>
-                        <View style={styles.inputBox}>
-                            <TextInput
-                                style={styles.input}
-                                value={city}
-                                onChangeText={setCity}
-                                placeholder="Paris"
-                                placeholderTextColor={Colors.PLACEHOLDER_TEXT}
-                            />
-                        </View>
-                    </View>
                     <View style={{ flex: 1 }}>
                         <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
                             {t("Zip code")}
@@ -130,10 +147,10 @@ export default function LocationScreen() {
                             <TextInput
                                 style={styles.input}
                                 value={zipCode}
-                                onChangeText={setZipCode}
-                                placeholder="75011"
+                                onChangeText={(v) => setZipCode(v.replace(/D/g, '').slice(0, 5))}
+                                placeholder={t("5 digits")}
                                 placeholderTextColor={Colors.PLACEHOLDER_TEXT}
-                                keyboardType="numeric"
+                                keyboardType="number-pad"
                             />
                         </View>
                     </View>
@@ -157,7 +174,7 @@ export default function LocationScreen() {
                 <CustomButton
                     // onPress={handleContinue}
                     onPress={handleContinue}
-                    title={t("Continue")}
+                    title={checking ? t("Checking...") : t("Continue")}
                     backgroundColor={Colors.BG_BLACK}
                     width="100%"
                     height={hp(54)}

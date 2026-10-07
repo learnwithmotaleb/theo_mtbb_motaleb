@@ -6,7 +6,7 @@
 // what the user sees. Here we only ever render in device-local time — never
 // hardcode an offset, and always send date-picker values as `YYYY-MM-DD`.
 
-import { intlLocale } from '@/i18n';
+import { intlLocale, t } from '@/i18n';
 
 export const deviceTimezone = (): string => {
   try {
@@ -56,6 +56,67 @@ export const formatClock = (hhmm?: string | null): string => {
   return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
 };
 
+const clockMinutes = (hhmm: string): number | null => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+};
+
+/**
+ * The cleaner's slot, earliest time first: arrival (the guest has left) then
+ * departure (before the next guest arrives). Schedules have been stored with
+ * `checkInTime` / `checkOutTime` in both orders, so the two values are ordered
+ * by clock time rather than trusted by field name — a cleaning never runs
+ * past midnight, so the earlier time is always the arrival.
+ */
+export const cleaningWindow = (
+  a?: string | null,
+  b?: string | null,
+): { arrival: string; departure: string } => {
+  const first = formatClock(a);
+  const second = formatClock(b);
+  const firstMin = first ? clockMinutes(first) : null;
+  const secondMin = second ? clockMinutes(second) : null;
+  if (firstMin !== null && secondMin !== null && secondMin < firstMin) {
+    return { arrival: second, departure: first };
+  }
+  return { arrival: first, departure: second };
+};
+
+/** "10:00 – 14:00" — arrival first, whatever order the fields came in. */
+export const formatCleaningWindow = (
+  a?: string | null,
+  b?: string | null,
+  separator = ' – ',
+): string => {
+  const { arrival, departure } = cleaningWindow(a, b);
+  return [arrival, departure].filter(Boolean).join(separator);
+};
+
+/** Length of the slot in hours (one decimal), or null when it cannot be read. */
+export const cleaningHours = (a?: string | null, b?: string | null): number | null => {
+  const { arrival, departure } = cleaningWindow(a, b);
+  const start = arrival ? clockMinutes(arrival) : null;
+  const end = departure ? clockMinutes(departure) : null;
+  if (start === null || end === null || end <= start) return null;
+  return Math.round(((end - start) / 60) * 10) / 10;
+};
+
+/**
+ * A "YYYY-MM-DD" day key rendered in the app's language ("samedi 19 septembre").
+ * Built from local date parts — parsing the key as a timestamp would read it
+ * as UTC midnight and show the previous day west of Greenwich.
+ */
+export const formatDayKey = (
+  key?: string | null,
+  options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' },
+  locale: string = intlLocale(),
+): string => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(key ?? '');
+  if (!match) return '';
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return date.toLocaleDateString(locale, options);
+};
+
 // Date → "YYYY-MM-DD" in device-local terms (what the backend expects for
 // schedule dates; it resolves them against the x-timezone header).
 export const toDateKey = (value: Date | string): string => {
@@ -70,11 +131,11 @@ export const relativeFromNow = (value?: string | Date | null): string => {
   if (!d) return '';
   const diff = Date.now() - d.getTime();
   const mins = Math.round(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('Just now');
+  if (mins < 60) return t('{n}m ago', { n: mins });
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t('{n}h ago', { n: hours });
   const days = Math.round(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return t('{n}d ago', { n: days });
   return formatDate(d);
 };

@@ -52,6 +52,8 @@ export type Cleaner = {
     id: string;
     name: string;
     image: any;
+    /** Assignment state: only an accepted cleaner can receive cleaning requests. */
+    status?: 'pending' | 'accepted' | 'refused';
 };
 
 export type HousingItem = {

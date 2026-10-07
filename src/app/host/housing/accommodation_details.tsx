@@ -6,6 +6,12 @@ import { StepIndicator } from '@/components/shared/StepIndicator';
 import { Body2, Caption3 } from '@/components/typo/Typography';
 import { showToast } from '@/components/shared/Toast';
 import { Colors } from '@/constants/theme';
+import {
+    hasFloorAndElevator,
+    ROOM_OPTIONS,
+    roomsToLabel,
+    roomsToNumber,
+} from '@/constants/accommodation';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
 import { useRouter } from 'expo-router';
@@ -22,27 +28,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
-// The dropdown speaks "3 rooms (T3)"; the API wants the number.
-const ROOM_OPTIONS = [
-    '1 room (T1)',
-    '2 rooms (T2)',
-    '3 rooms (T3)',
-    '4 rooms (T4)',
-    '5+ rooms',
-];
-const roomsToNumber = (label: string) => String(parseInt(label, 10) || 1);
-const roomsToLabel = (value: string) =>
-    ROOM_OPTIONS.find((option) => parseInt(option, 10) === Number(value)) ??
-    ROOM_OPTIONS[2];
-
 export default function AccommodationDetailsScreen() {
     const t = useT();
     const router = useRouter();
     const dispatch = useAppDispatch();
     const draft = useAppSelector((state) => state.accommodationDraft);
 
-    const [elevator, setElevator] = useState<'yes' | 'no'>(
-        draft.hasElevator ? 'yes' : 'no',
+    // Floor and elevator are only asked for a unit inside a building.
+    const askFloor = hasFloorAndElevator(draft.accommodationType);
+    // Nothing pre-selected: null until the host answers.
+    const [elevator, setElevator] = useState<'yes' | 'no' | null>(
+        draft.hasElevator === null ? null : draft.hasElevator ? 'yes' : 'no',
     );
     const [notes, setNotes] = useState(draft.notes);
     const [form, setForm] = useState({
@@ -52,12 +48,23 @@ export default function AccommodationDetailsScreen() {
         rate: draft.cleaningRate,
     });
 
+    // "55,5" is how a French keyboard types a decimal.
+    const rate = form.rate.replace(',', '.').trim();
+
     const handleContinue = () => {
-        if (!Number(form.surface)) {
+        if (!form.rooms) {
+            showToast(t("Choose the number of rooms."), 'error');
+            return;
+        }
+        if (!(Number(form.surface) > 0)) {
             showToast(t("Enter the surface area."), 'error');
             return;
         }
-        if (form.rate === '' || Number.isNaN(Number(form.rate))) {
+        if (askFloor && elevator === null) {
+            showToast(t("Tell us whether there is an elevator."), 'error');
+            return;
+        }
+        if (rate === '' || !(Number(rate) >= 0)) {
             showToast(t("Enter a cleaning rate."), 'error');
             return;
         }
@@ -65,9 +72,9 @@ export default function AccommodationDetailsScreen() {
             updateDraft({
                 numberOfRooms: roomsToNumber(form.rooms),
                 surface: form.surface,
-                floor: form.floor,
-                hasElevator: elevator === 'yes',
-                cleaningRate: form.rate,
+                floor: askFloor ? form.floor : '',
+                hasElevator: askFloor ? elevator === 'yes' : false,
+                cleaningRate: rate,
                 notes,
             }),
         );
@@ -105,8 +112,9 @@ export default function AccommodationDetailsScreen() {
                     {/* Number of rooms */}
                     <FormDropdown
                         label={t("Number of rooms")}
+                        placeholder={t("Choose")}
                         value={form.rooms}
-                        options={ROOM_OPTIONS}
+                        options={[...ROOM_OPTIONS]}
                         onChange={(v) => setForm({ ...form, rooms: v })}
                     />
 
@@ -118,25 +126,25 @@ export default function AccommodationDetailsScreen() {
                         <View style={styles.inputBox}>
                             <TextInput
                                 style={styles.input}
-                                placeholder="65"
+                                placeholder={t("Surface in m²")}
                                 placeholderTextColor={Colors.TEXT_COLOR}
                                 keyboardType="number-pad"
                                 value={form.surface}
-                                onChangeText={(v) => setForm({ ...form, surface: v })}
+                                onChangeText={(v) => setForm({ ...form, surface: v.replace(/\D/g, '') })}
                             />
-                            <Caption3 color={Colors.TEXT_COLOR}>
-                                {form.surface ? `${form.surface} m²` : '65 m²'}
-                            </Caption3>
+                            <Caption3 color={Colors.TEXT_COLOR}>m²</Caption3>
                         </View>
                     </View>
 
+                    {askFloor && (
+                    <>
                     {/* Floor */}
                     <View style={styles.fieldGroup}>
                         <Caption3 color={Colors.PRIMARY_TEXT} style={styles.label}>{t("Floor")}</Caption3>
                         <View style={styles.inputBox}>
                             <TextInput
                                 style={[styles.input, { flex: 1 }]}
-                                placeholder={t("3rd Floor")}
+                                placeholder={t("e.g. 3")}
                                 placeholderTextColor={Colors.TEXT_COLOR}
                                 value={form.floor}
                                 onChangeText={(v) => setForm({ ...form, floor: v })}
@@ -166,12 +174,14 @@ export default function AccommodationDetailsScreen() {
                                                 : Colors.TEXT_COLOR
                                         }
                                     >
-                                        {opt === 'yes' ? 'Yes' : 'No'}
+                                        {opt === 'yes' ? t('Yes') : t('No')}
                                     </Caption3>
                                 </Pressable>
                             ))}
                         </View>
                     </View>
+                    </>
+                    )}
 
                     {/* Cleaning rate */}
                     <View style={styles.fieldGroup}>
@@ -181,15 +191,13 @@ export default function AccommodationDetailsScreen() {
                         <View style={styles.inputBox}>
                             <TextInput
                                 style={styles.input}
-                                placeholder="75002"
+                                placeholder={t("Amount")}
                                 placeholderTextColor={Colors.TEXT_COLOR}
-                                keyboardType="number-pad"
+                                keyboardType="decimal-pad"
                                 value={form.rate}
-                                onChangeText={(v) => setForm({ ...form, rate: v })}
+                                onChangeText={(v) => setForm({ ...form, rate: v.replace(/[^\d.,]/g, '') })}
                             />
-                            <Caption3 color={Colors.TEXT_COLOR}>
-                                {form.rate ? `${form.rate},00 €` : '55,00 €'}
-                            </Caption3>
+                            <Caption3 color={Colors.TEXT_COLOR}>€</Caption3>
                         </View>
                         <Caption3
                             color={Colors.TEXT_COLOR}

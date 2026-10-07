@@ -150,3 +150,24 @@ export const {
   useGetMyCleanerAccommodationsQuery,
   useRespondToAssignmentMutation,
 } = assignmentApi;
+
+/**
+ * How many host requests are waiting for this cleaner's answer. Drives the
+ * Requests tab badge and the home-screen reminder, so a new request is seen
+ * without opening the Requests tab. Polls while the app is open and refreshes
+ * when it returns to the foreground; accepting or refusing updates it at once
+ * (the respond mutation invalidates `CleanerRequest`).
+ */
+export const usePendingRequestCount = (options?: { skip?: boolean }): number => {
+  const { data } = useGetMyRequestsQuery(
+    { status: 'pending', page: 1, limit: 1 },
+    {
+      skip: options?.skip,
+      pollingInterval: 60_000,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+      refetchOnMountOrArgChange: 30,
+    },
+  );
+  return data?.meta?.total ?? data?.data?.length ?? 0;
+};

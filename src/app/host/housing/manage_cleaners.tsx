@@ -175,7 +175,7 @@ export default function ManageCleanersScreen() {
         try {
             await changeRole({ assignmentId: selectedCleaner.id, role }).unwrap();
             showToast(
-                role === 'primary' ? 'Set as primary cleaner' : 'Moved to substitutes',
+                role === 'primary' ? t('Set as primary cleaner') : t('Moved to substitutes'),
                 'success',
             );
         } catch (err) {

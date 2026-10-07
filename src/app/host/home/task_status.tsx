@@ -12,7 +12,7 @@ import { Colors } from '@/constants/theme';
 import { TaskStatus } from '@/types/hostTypes';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { resolveAssetUrl } from '@/lib/config';
-import { formatClock } from '@/lib/datetime';
+import { formatCleaningWindow } from '@/lib/datetime';
 import {
     accommodationLocation,
     accommodationPhoto,
@@ -146,7 +146,7 @@ export default function TaskStatusScreen() {
         }
     };
 
-    const timeSlot = `${formatClock(schedule?.checkOutTime)} – ${formatClock(schedule?.checkInTime)}`;
+    const timeSlot = formatCleaningWindow(schedule?.checkInTime, schedule?.checkOutTime);
 
     const renderContent = () => {
         switch (status) {

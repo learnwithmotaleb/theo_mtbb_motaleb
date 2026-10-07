@@ -1,12 +1,10 @@
 import { Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
+import { useIntlLocale } from '@/i18n';
 import React, { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
-const DAY_NAMES  = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // ISO string: "2026-05-15"
 function toISO(date: Date): string {
@@ -39,6 +37,7 @@ export function DateScrollPicker({
     activeDates = [],
 }: DateScrollPickerProps) {
     const scrollRef = useRef<ScrollView>(null);
+    const locale = useIntlLocale();
 
     const today = new Date();
     const selDate = selectedDate
@@ -88,7 +87,7 @@ export function DateScrollPicker({
                         <Caption4
                             color={isSelected ? Colors.TEXT_WHITE : Colors.TEXT_COLOR}
                         >
-                            {DAY_NAMES[date.getDay()]}
+                            {date.toLocaleDateString(locale, { weekday: 'short' })}
                         </Caption4>
 
                         {/* Day number */}
@@ -103,7 +102,7 @@ export function DateScrollPicker({
                         <Caption4
                             color={isSelected ? Colors.TEXT_WHITE : Colors.TEXT_COLOR}
                         >
-                            {MONTH_NAMES[date.getMonth()]}
+                            {date.toLocaleDateString(locale, { month: 'short' })}
                         </Caption4>
 
                         {/* Task dot */}

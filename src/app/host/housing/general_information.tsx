@@ -1,17 +1,20 @@
 import { useT } from '@/i18n';
+import { CityField } from '@/components/host/housing/CityField';
 import { FormDropdown } from '@/components/host/housing/FormDropdown';
 import { FormField } from '@/components/host/housing/FormField';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { StepIndicator } from '@/components/shared/StepIndicator';
-import { Body2, Caption3 } from '@/components/typo/Typography';
+import { Body2, Caption3, Caption4 } from '@/components/typo/Typography';
 import { showToast } from '@/components/shared/Toast';
+import { ACCOMMODATION_TYPES, type AccommodationType } from '@/constants/accommodation';
 import { Colors } from '@/constants/theme';
+import { checkPostalCode, POSTAL_CODE_PATTERN } from '@/lib/frenchGeo';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
@@ -26,23 +29,70 @@ export default function GeneralInformationScreen() {
         name: draft.name,
         type: draft.accommodationType,
         address: draft.address,
-        city: draft.city || '',
+        city: draft.city,
         zip: draft.zipCode,
+        // Known once the city is picked from the suggestions.
+        cityCodes: draft.cityPostalCodes,
     });
+    const [checking, setChecking] = useState(false);
 
-    const handleContinue = () => {
+    // Instant feedback when the city's codes are already known.
+    const zip = form.zip.trim();
+    const zipError =
+        zip.length === 5 && form.cityCodes.length > 0 && !form.cityCodes.includes(zip)
+            ? t('This postal code does not match {city}.', { city: form.city })
+            : '';
+
+    const handleCityChange = (city: string, commune: { postalCodes: string[] } | null) => {
+        setForm((prev) => {
+            const codes = commune?.postalCodes ?? [];
+            // A city with a single postal code fills it in. One with several
+            // (Lyon has nine) keeps the host's code only if it belongs there.
+            let nextZip = prev.zip;
+            if (codes.length === 1) nextZip = codes[0];
+            else if (codes.length > 1 && !codes.includes(prev.zip)) nextZip = '';
+            return { ...prev, city, cityCodes: codes, zip: nextZip };
+        });
+    };
+
+    const handleContinue = async () => {
+        if (checking) return;
         if (form.name.trim().length < 2) {
             showToast(t("Enter an accommodation name."), 'error');
+            return;
+        }
+        if (!form.type) {
+            showToast(t("Choose the type of accommodation."), 'error');
             return;
         }
         if (form.address.trim().length < 5) {
             showToast(t("Enter a full address."), 'error');
             return;
         }
-        if (!form.city.trim() || !form.zip.trim()) {
-            showToast(t("Enter the city and zip code."), 'error');
+        if (!form.city.trim()) {
+            showToast(t("Enter a city."), 'error');
             return;
         }
+        if (!POSTAL_CODE_PATTERN.test(zip)) {
+            showToast(t("Enter a valid 5-digit postal code."), 'error');
+            return;
+        }
+
+        // The postal code must belong to the city.
+        setChecking(true);
+        const result = await checkPostalCode(form.city, zip, form.cityCodes);
+        setChecking(false);
+        if (result === 'mismatch') {
+            showToast(t('This postal code does not match {city}.', { city: form.city.trim() }), 'error');
+            return;
+        }
+        if (result === 'unknown_postal_code') {
+            showToast(t("This postal code does not exist."), 'error');
+            return;
+        }
+        // 'unavailable': the geo service could not be reached. The format is
+        // valid, so the host is not blocked by a third-party outage.
+
         dispatch(
             updateDraft({
                 name: form.name.trim(),
@@ -50,7 +100,8 @@ export default function GeneralInformationScreen() {
                 accommodationType: form.type,
                 address: form.address.trim(),
                 city: form.city.trim(),
-                zipCode: form.zip.trim(),
+                zipCode: zip,
+                cityPostalCodes: form.cityCodes,
             }),
         );
         router.push('/host/housing/accommodation_details' as any);
@@ -65,6 +116,10 @@ export default function GeneralInformationScreen() {
                 <StepIndicator totalSteps={5} currentStep={1} activeColor='#0088FF' inactiveColor='#0088FF' />
             </View>
 
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
             <ScrollView
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
@@ -82,46 +137,57 @@ export default function GeneralInformationScreen() {
 
                 <FormField
                     label={t("Accommodation name")}
-                    placeholder={t("Appartement T3 – City Center")}
+                    placeholder={t("e.g. Apartment in the city centre")}
                     value={form.name}
                     onChangeText={(v) => setForm({ ...form, name: v })}
                 />
                 <FormDropdown
                     label={t("Type of accommodation")}
+                    placeholder={t("Choose a type")}
                     value={form.type}
-                    options={['Apartment', 'House', 'Studio', 'Other']}
+                    options={[...ACCOMMODATION_TYPES]}
                     onChange={(v) =>
-                        setForm({ ...form, type: v as typeof form.type })
+                        setForm({ ...form, type: v as AccommodationType })
                     }
                 />
                 <FormField
                     label={t("Address")}
-                    placeholder="15 Rue de la Paix, 75002 Paris"
+                    placeholder={t("Street number and name")}
                     value={form.address}
                     onChangeText={(v) => setForm({ ...form, address: v })}
+                    textContentType="streetAddressLine1"
                 />
 
+                <CityField label={t("City")} value={form.city} onChange={handleCityChange} />
 
-                <FormField
-                    label={t("City")}
-                    placeholder="Paris"
-                    value={form.city}
-                    onChangeText={(v) => setForm({ ...form, city: v })}
-                    autoCapitalize="words"
-                />
                 <FormField
                     label={t("Zip code")}
-                    placeholder="75002"
+                    placeholder={t("5 digits")}
                     keyboardType="number-pad"
+                    maxLength={5}
                     value={form.zip}
-                    onChangeText={(v) => setForm({ ...form, zip: v })}
+                    onChangeText={(v) => setForm({ ...form, zip: v.replace(/\D/g, '') })}
+                    textContentType="postalCode"
                 />
+                {zipError ? (
+                    <Caption4 color={Colors.COLOR_DANGER} style={styles.fieldError}>
+                        {zipError}
+                    </Caption4>
+                ) : form.cityCodes.length > 1 ? (
+                    <Caption4 color={Colors.TEXT_COLOR} style={styles.fieldError}>
+                        {t("Postal codes for {city}: {codes}", {
+                            city: form.city,
+                            codes: form.cityCodes.join(', '),
+                        })}
+                    </Caption4>
+                ) : null}
             </ScrollView>
 
             <View style={styles.footer}>
                 <CustomButton
-                    title={t("Continue")}
+                    title={checking ? t("Checking...") : t("Continue")}
                     onPress={handleContinue}
+                    disabled={checking}
                     width="100%"
                     backgroundColor={Colors.PRIMARY_TEXT}
                     color="#fff"
@@ -129,6 +195,7 @@ export default function GeneralInformationScreen() {
                     height={hp(52)}
                 />
             </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
@@ -146,6 +213,7 @@ paddingHorizontal: wp(20),
         textAlign:"center"
     },
     subtitle: { marginBottom: hp(24),textAlign:"center" },
+    fieldError: { marginTop: -hp(12), marginBottom: hp(16) },
     footer: {
         // paddingVertical: hp(16),
         paddingHorizontal: wp(20),

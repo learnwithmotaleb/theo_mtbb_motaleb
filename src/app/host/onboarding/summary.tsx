@@ -77,7 +77,7 @@ export default function SummaryScreen() {
             },
             {
                 label: t("Type"),
-                value: draft.accommodationType,
+                value: draft.accommodationType ? t(draft.accommodationType) : t("Not set"),
                 route: '/host/onboarding/property',
             },
             {
@@ -98,8 +98,8 @@ export default function SummaryScreen() {
             {
                 label: t("Proposed rate"),
                 value: draft.cleaningRate
-                    ? `${formatMoney(Number(draft.cleaningRate))} / cleaning`
-                    : 'Not set',
+                    ? `${formatMoney(Number(draft.cleaningRate))} / ${t("cleaning")}`
+                    : t("Not set"),
                 route: '/host/onboarding/cleaning_duration',
             },
         ],
@@ -110,7 +110,7 @@ export default function SummaryScreen() {
     const handleConfirm = async () => {
         const problem = validateDraft(draft);
         if (problem) {
-            showToast(problem, 'error');
+            showToast(t(problem), 'error');
             return;
         }
         try {
