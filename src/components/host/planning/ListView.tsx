@@ -44,9 +44,12 @@ export function ListView({
     onConnectCalendar,
     hasData,
     events = [],
+    accommodationId,
 }: {
     onConnectCalendar: () => void;
     hasData: boolean;
+    /** The property on screen, so "+" schedules a cleaning for it. */
+    accommodationId?: string;
     /** Bookings paired with their cleanings for the month being shown. */
     events?: ListEvent[];
 }) {
@@ -63,7 +66,7 @@ export function ListView({
             setCancelVisible(true);
         } else {
             // No cleaning yet → navigate to schedule creation
-            router.push('/host/home/recommended_cleaning' as any);
+            router.push({ pathname: '/host/home/schedule_cleaning', params: { accommodationId } } as any);
         }
     };
 
@@ -151,7 +154,7 @@ export function ListView({
                                     <Pressable
                                         style={styles.plusCircle}
                                         onPress={() =>
-                                            router.push('/host/home/recommended_cleaning' as any)
+                                            router.push({ pathname: '/host/home/schedule_cleaning', params: { accommodationId } } as any)
                                         }
                                     >
                                         <PlusIcon color={Colors.COLOR_ACTIVE} />

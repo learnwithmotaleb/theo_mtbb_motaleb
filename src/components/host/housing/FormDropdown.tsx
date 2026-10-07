@@ -17,10 +17,15 @@ interface Props {
     value: string;
     options: string[];
     onChange: (val: string) => void;
+    /** Shown greyed out while nothing is chosen. Defaults to the label. */
+    placeholder?: string;
+    /** How an option reads on screen. Defaults to its translation. */
+    getLabel?: (option: string) => string;
 }
 
-export function FormDropdown({ label, value, options, onChange }: Props) {
+export function FormDropdown({ label, value, options, onChange, placeholder, getLabel }: Props) {
     const t = useT();
+    const display = getLabel ?? ((option: string) => t(option));
     const [open, setOpen] = useState(false);
 
     return (
@@ -32,10 +37,10 @@ export function FormDropdown({ label, value, options, onChange }: Props) {
             {/* Trigger */}
             <Pressable style={styles.box} onPress={() => setOpen(true)}>
                 <Caption3
-                    color={value ? Colors.TEXT_COLOR : Colors.TEXT_COLOR}
+                    color={value ? Colors.PRIMARY_TEXT : Colors.TEXT_COLOR}
                     style={{ flex: 1 }}
                 >
-                    {t(value) || label}
+                    {value ? display(value) : placeholder ?? label}
                 </Caption3>
                 <Caption3 color={Colors.TEXT_COLOR}><DownArrowIcon color={Colors.TEXT_COLOR}/></Caption3>
             </Pressable>
@@ -76,7 +81,7 @@ export function FormDropdown({ label, value, options, onChange }: Props) {
                                                 : Colors.PRIMARY_TEXT
                                         }
                                     >
-                                        {t(item)}
+                                        {display(item)}
                                     </Caption3>
                                     {item === value && (
                                         <Caption3 color={Colors.COLOR_ACTIVE}>✓</Caption3>

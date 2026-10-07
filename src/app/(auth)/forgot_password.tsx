@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { hp, wp } from '../../../utils/responsiveDevice';
-import { validateEmail } from '../../../utils/validation';
+import { normalizeEmail, validateEmail } from '../../../utils/validation';
 
 export default function ForgotPasswordScreen() {
     const t = useT();
@@ -28,7 +28,7 @@ export default function ForgotPasswordScreen() {
             [FORM_FIELDS.EMAIL]: validateEmail,
         },
         onSubmit: async (values) => {
-            const email = values[FORM_FIELDS.EMAIL];
+            const email = normalizeEmail(values[FORM_FIELDS.EMAIL]);
             try {
                 await forgotPassword({ email }).unwrap();
                 showToast(t("OTP sent to your email"), 'success');

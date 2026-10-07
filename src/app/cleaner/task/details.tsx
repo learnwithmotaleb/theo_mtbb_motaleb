@@ -99,7 +99,7 @@ export default function TaskDetailsScreen() {
         try {
             await respond({ id: taskId, action }).unwrap();
             showToast(
-                action === 'accept' ? 'Mission accepted' : 'Mission refused',
+                action === 'accept' ? t('Mission accepted') : t('Mission refused'),
                 'success',
             );
             if (action === 'refuse') router.back();

@@ -1,6 +1,13 @@
 import { baseApi, deleteToken, saveToken } from '../api/baseApi';
 import { clearAuth, setCredentials, setPendingSignup } from '../slices/authSlice';
 import type { ApiEnvelope, User } from '../types';
+import { normalizeEmail } from '../../../utils/validation';
+
+/** Same body, email trimmed. */
+const withEmail = <T extends { email: string }>(body: T): T => ({
+  ...body,
+  email: normalizeEmail(body.email),
+});
 
 /**
  * Auth mutations return the backend envelope untouched (not the inner `data`)
@@ -22,11 +29,11 @@ export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // ── Sign up ───────────────────────────────────────────────────────────────
     signup: builder.mutation<ApiEnvelope<null>, { email: string }>({
-      query: (body) => ({ url: '/auth/signup', method: 'POST', body }),
+      query: (body) => ({ url: '/auth/signup', method: 'POST', body: withEmail(body) }),
       async onQueryStarted({ email }, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
-          dispatch(setPendingSignup({ email }));
+          dispatch(setPendingSignup({ email: normalizeEmail(email) }));
         } catch {
           /* the screen surfaces the error */
         }
@@ -34,17 +41,17 @@ export const authApi = baseApi.injectEndpoints({
     }),
 
     resendOtp: builder.mutation<ApiEnvelope<null>, { email: string }>({
-      query: (body) => ({ url: '/auth/resend-otp', method: 'POST', body }),
+      query: (body) => ({ url: '/auth/resend-otp', method: 'POST', body: withEmail(body) }),
     }),
 
     // OTP is 4 digits. Returns a roleless onboarding token.
     verifyOtp: builder.mutation<AuthEnvelope, { email: string; otp: string }>({
-      query: (body) => ({ url: '/auth/verify-otp', method: 'POST', body }),
+      query: (body) => ({ url: '/auth/verify-otp', method: 'POST', body: withEmail(body) }),
       async onQueryStarted({ email }, { dispatch, queryFulfilled }) {
         const { data } = await queryFulfilled;
         await saveToken(data.token);
         dispatch(setCredentials({ token: data.token, user: data.data }));
-        dispatch(setPendingSignup({ email }));
+        dispatch(setPendingSignup({ email: normalizeEmail(email) }));
       },
     }),
 
@@ -75,7 +82,11 @@ export const authApi = baseApi.injectEndpoints({
     // ── Sign in ───────────────────────────────────────────────────────────────
     signin: builder.mutation<AuthEnvelope, { email: string; password: string }>({
       async queryFn(body, { dispatch }, _extraOptions, baseQuery) {
-        const result = await baseQuery({ url: '/auth/signin', method: 'POST', body });
+        const result = await baseQuery({
+          url: '/auth/signin',
+          method: 'POST',
+          body: withEmail(body),
+        });
         if (result.error) return { error: result.error };
 
         const data = result.data as AuthEnvelope;
@@ -101,11 +112,11 @@ export const authApi = baseApi.injectEndpoints({
 
     // ── Forgot / reset password ───────────────────────────────────────────────
     forgotPassword: builder.mutation<ApiEnvelope<null>, { email: string }>({
-      query: (body) => ({ url: '/auth/forgot-password', method: 'POST', body }),
+      query: (body) => ({ url: '/auth/forgot-password', method: 'POST', body: withEmail(body) }),
       async onQueryStarted({ email }, { dispatch, queryFulfilled }) {
         try {
           await queryFulfilled;
-          dispatch(setPendingSignup({ email }));
+          dispatch(setPendingSignup({ email: normalizeEmail(email) }));
         } catch {
           /* handled by the screen */
         }
@@ -116,14 +127,14 @@ export const authApi = baseApi.injectEndpoints({
       ApiEnvelope<{ resetToken: string }>,
       { email: string; otp: string }
     >({
-      query: (body) => ({ url: '/auth/verify-reset-otp', method: 'POST', body }),
+      query: (body) => ({ url: '/auth/verify-reset-otp', method: 'POST', body: withEmail(body) }),
     }),
 
     resetPassword: builder.mutation<
       ApiEnvelope<null>,
       { email: string; newPassword: string; confirmPassword: string }
     >({
-      query: (body) => ({ url: '/auth/reset-password', method: 'POST', body }),
+      query: (body) => ({ url: '/auth/reset-password', method: 'POST', body: withEmail(body) }),
     }),
 
     changePassword: builder.mutation<

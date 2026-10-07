@@ -1,6 +1,5 @@
 import { useT } from '@/i18n';
 import { CalendarIcon } from '@/assets/icons/cleaner_icon/CalendarIcon';
-import { AddUserIcon } from '@/assets/icons/host_icon/AddUserIcon';
 import { Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import React from 'react';
@@ -9,21 +8,17 @@ import { wp } from '../../../../utils/responsiveDevice';
 
 type Props = {
     onSchedule: () => void;
-    onAddHousekeeper: () => void;
 };
 
-export function QuickAccess({ onSchedule, onAddHousekeeper }: Props) {
+// Adding a cleaner already lives in the property creation flow and on each
+// property's page, so the home screen keeps a single shortcut.
+export function QuickAccess({ onSchedule }: Props) {
     const t = useT();
     return (
         <View style={styles.row}>
             <Pressable style={styles.btn} onPress={onSchedule}>
                 <CalendarIcon size={18} color={"#0088FF"} />
                 <Caption4 numberOfLines={1} color={Colors.PRIMARY_TEXT}>{t("Schedule a cleaning")}</Caption4>
-            </Pressable>
-            <Pressable style={styles.btn} onPress={onAddHousekeeper}>
-                <AddUserIcon size={18} color={Colors.COLOR_ACTIVE} />
-                
-                <Caption4 numberOfLines={1} color={Colors.PRIMARY_TEXT}>{t("Add a housekeeper")}</Caption4>
             </Pressable>
         </View>
     );

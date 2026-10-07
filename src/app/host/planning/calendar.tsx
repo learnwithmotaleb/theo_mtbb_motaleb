@@ -94,17 +94,17 @@ export default function CalendarScreen() {
 
                 {/* Tab toggle */}
                 <View style={styles.tabWrapper}>
-                    {(['calendrier', 'liste'] as Tab[]).map((t) => (
+                    {(['calendrier', 'liste'] as Tab[]).map((option) => (
                         <Pressable
-                            key={t}
-                            style={[styles.tabBtn, tab === t && styles.tabBtnActive]}
-                            onPress={() => setTab(t)}
+                            key={option}
+                            style={[styles.tabBtn, tab === option && styles.tabBtnActive]}
+                            onPress={() => setTab(option)}
                         >
                             <Caption3
-                                color={tab === t ? '#0088FF' : Colors.TEXT_COLOR}
-                                style={tab === t ? { fontFamily: 'Poppins_600SemiBold' } : {}}
+                                color={tab === option ? '#0088FF' : Colors.TEXT_COLOR}
+                                style={tab === option ? { fontFamily: 'Poppins_600SemiBold' } : {}}
                             >
-                                {t === 'calendrier' ? 'Calendrier' : 'Liste'}
+                                {option === 'calendrier' ? t('Calendar') : t('List')}
                             </Caption3>
                         </Pressable>
                     ))}
@@ -117,6 +117,7 @@ export default function CalendarScreen() {
                             onConnectCalendar={handleConnectCalendar}
                             hasData={property.hasCalendarData}
                             events={calendarEvents}
+                            accommodationId={property.id}
                             onMonthChange={(year, month) =>
                                 setCursor({ year, month: month + 1 })
                             }
@@ -126,6 +127,7 @@ export default function CalendarScreen() {
                             onConnectCalendar={handleConnectCalendar}
                             hasData={property.hasCalendarData}
                             events={listEvents}
+                            accommodationId={property.id}
                         />
                     )}
                 </View>
@@ -138,7 +140,7 @@ export default function CalendarScreen() {
                         title={t('Add a Manual Cleaning')}
                         onPress={() =>
                             router.push({
-                                pathname: '/host/home/recommended_cleaning',
+                                pathname: '/host/home/schedule_cleaning',
                                 params: { accommodationId: property.id },
                             } as any)
                         }

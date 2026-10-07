@@ -8,12 +8,11 @@ import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { Body4, Body7, Caption2, Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
-import { formatClock } from '@/lib/datetime';
+import { formatCleaningWindow } from '@/lib/datetime';
 
 import { personName } from '@/lib/mappers';
 import { computeSchedulePrice } from '@/lib/pricing';
 
-import { usePlatformFeePercent } from '@/redux/services/miscApi';
 import { useGetScheduleByIdQuery } from '@/redux/services/scheduleApi';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
@@ -30,7 +29,6 @@ export default function PaymentSuccessScreen() {
     const { data: schedule } = useGetScheduleByIdQuery(scheduleId as string, {
         skip: !scheduleId,
     });
-    const feePercent = usePlatformFeePercent();
 
     const accommodation = (schedule?.accommodation ?? {}) as any;
     const cleaner = (schedule?.cleaner ?? {}) as any;
@@ -41,9 +39,8 @@ export default function PaymentSuccessScreen() {
             computeSchedulePrice(
                 assignment?.pricePerCleaning,
                 accommodation?.cleaningRate,
-                feePercent,
             ),
-        [assignment, accommodation, feePercent],
+        [assignment, accommodation],
     );
 
     const data = useMemo(
@@ -57,9 +54,8 @@ export default function PaymentSuccessScreen() {
                 month: 'long',
                 year: 'numeric',
             }),
-            checkOut: formatClock(schedule?.checkOutTime),
-            checkIn: formatClock(schedule?.checkInTime),
-            housekeeper: personName(cleaner, 'the cleaner'),
+            slot: formatCleaningWindow(schedule?.checkInTime, schedule?.checkOutTime, '  →  '),
+            housekeeper: personName(cleaner, t('the cleaner')),
             cleaningService: price.cleaningService,
             serviceFee: price.serviceFee,
         }),
@@ -78,12 +74,10 @@ export default function PaymentSuccessScreen() {
                     <Body7 color="#fff" style={{ fontSize: 28 }}>✓</Body7>
                 </View>
                 <Body4 color={Colors.PRIMARY_TEXT} align="center" style={{ marginTop: hp(12) }}>
-                    {t("Payment successful")}
+                    {t("Cleaning request sent")}
                 </Body4>
                 <Caption3 color={"#727272"} align="center" style={successStyles.successDesc}>
-                    Your payment is then held in escrow,{'\n'}
-                    once the cleaner completes the task, the{'\n'}
-                    payment is released to the cleaner?
+                    {t("Payment is settled directly with the cleaner, outside the app.")}
                 </Caption3>
 
                 {/* Pending acceptance */}
@@ -91,7 +85,7 @@ export default function PaymentSuccessScreen() {
                     {t("Pending acceptance")}
                 </Body4>
                 <Caption3 color={"#727272"} style={{ marginBottom: hp(16) }}>
-                    Your cleaning is scheduled and awaiting confirmation from {data.housekeeper}.
+                    {t("Your cleaning is scheduled and awaiting confirmation from {name}.", { name: data.housekeeper })}
                 </Caption3>
 
                 {/* Summary */}
@@ -100,7 +94,7 @@ export default function PaymentSuccessScreen() {
                     {[
                         { icon: <HousingIcon size={16} color={"#8E8E93"} />, label: t("Accommodation"), value: data.addressOneLine },
                         { icon: <CalendarIcon size={18} color={"#8E8E93"} />, label: t("Date"), value: data.date },
-                        { icon: <ClockIcon size={14} color={"#8E8E93"} />, label: t("Check-out / Check-in"), value: `${data.checkOut}  →  ${data.checkIn}` },
+                        { icon: <ClockIcon size={14} color={"#8E8E93"} />, label: t("Arrival / Departure"), value: data.slot },
                         { icon: <UserIcon size={14} color={"#8E8E93"} />, label: t("Housekeeper"), value: data.housekeeper },
                     ].map((row, idx, arr) => (
                         <React.Fragment key={row.label}>
@@ -141,12 +135,12 @@ export default function PaymentSuccessScreen() {
                     </View>
                 </View>
 
-                {/* Secure payment note */}
+                {/* Off-app payment note */}
                 <Body7 color={Colors.TEXT_COLOR} style={{ marginBottom: hp(6) }}>
-                    {t("Secure payment")}
+                    {t("Off-app payment")}
                 </Body7>
                 <Caption3 color={"#4B4B4B"}>
-                    {t("Payment has been successfully processed. You will only be charged once the cleaning has been accepted and completed.")}
+                    {t("Nothing is charged in the app. You settle the cleaning directly with the cleaner.")}
                 </Caption3>
             </ScrollView>
 

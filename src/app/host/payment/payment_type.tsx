@@ -8,22 +8,16 @@ import { ClockIcon } from '@/assets/icons/host_icon/ClockIcon';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { Body6, Body7, Caption2, Caption3 } from '@/components/typo/Typography';
-import { showToast } from '@/components/shared/Toast';
-import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
-import { getApiErrorMessage } from '@/lib/apiError';
-import { formatClock } from '@/lib/datetime';
+import { cleaningWindow } from '@/lib/datetime';
 
 import { accommodationPhoto, personName } from '@/lib/mappers';
-import { computeSchedulePrice, fromCents } from '@/lib/pricing';
+import { computeSchedulePrice } from '@/lib/pricing';
 
-import { usePlatformFeePercent } from '@/redux/services/miscApi';
-import { usePayForScheduleMutation } from '@/redux/services/paymentApi';
 import {
     useGetScheduleByIdQuery,
     useInitiateHandCashMutation,
 } from '@/redux/services/scheduleApi';
-import { initStripe, useStripe } from '@stripe/stripe-react-native';
 import { AppImage } from '@/components/shared/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
@@ -31,9 +25,10 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
-// Cards go through Stripe's payment sheet; cash is settled outside Stripe and
-// only needs the cleaner's approval. No wallet rails are offered.
-type PaymentMethod = 'card' | 'hand_cash';
+// Payment is settled directly between the host and the cleaner, outside the
+// app: no card is taken and no service fee is charged. The backend still
+// records the choice (POST /schedule/:id/handcash) so both sides see it.
+type PaymentMethod = 'hand_cash';
 
 function RadioButton({ selected }: { selected: boolean }) {
     return (
@@ -73,19 +68,15 @@ export default function PaymentScreen() {
     const { formatDate, formatMoney } = useFormat();
     const router = useRouter();
     const { scheduleId } = useLocalSearchParams<{ scheduleId: string }>();
-    const [selected, setSelected] = useState<PaymentMethod>('card');
-
-    const { initPaymentSheet, presentPaymentSheet } = useStripe();
+    const [selected, setSelected] = useState<PaymentMethod>('hand_cash');
 
     const { data: schedule, isLoading } = useGetScheduleByIdQuery(scheduleId, {
         skip: !scheduleId,
     });
-    const [payForSchedule, { isLoading: isPaying }] = usePayForScheduleMutation();
     const [initiateHandCash, { isLoading: isRequestingCash }] = useInitiateHandCashMutation();
-    const feePercent = usePlatformFeePercent();
 
-    const accommodation = (schedule?.accommodation ?? {}) as any;
-    const cleaner = (schedule?.cleaner ?? {}) as any;
+    const accommodation = useMemo(() => (schedule?.accommodation ?? {}) as any, [schedule]);
+    const cleaner = useMemo(() => (schedule?.cleaner ?? {}) as any, [schedule]);
     const assignment = schedule?.assignment as any;
 
     const price = useMemo(
@@ -93,9 +84,8 @@ export default function PaymentScreen() {
             computeSchedulePrice(
                 assignment?.pricePerCleaning,
                 accommodation?.cleaningRate,
-                feePercent,
             ),
-        [assignment, accommodation, feePercent],
+        [assignment, accommodation],
     );
 
     const data = useMemo(
@@ -111,77 +101,33 @@ export default function PaymentScreen() {
                 month: 'long',
                 year: 'numeric',
             }),
-            checkOut: formatClock(schedule?.checkOutTime),
-            checkIn: formatClock(schedule?.checkInTime),
-            housekeeper: personName(cleaner, 'Cleaner'),
+            slot: cleaningWindow(schedule?.checkInTime, schedule?.checkOutTime),
+            housekeeper: personName(cleaner, t('Housekeeper')),
             cleaningService: price.cleaningService,
             serviceFee: price.serviceFee,
         }),
-        [accommodation, schedule, cleaner, price],
+        [accommodation, schedule, cleaner, price, t, formatDate],
     );
 
     const total = price.total;
 
-    const goToSuccess = (paidTotal: number, method: PaymentMethod) =>
+    const handleConfirm = async () => {
+        if (!scheduleId || isRequestingCash) return;
+
+        // The cleaning request already exists; this only records that the
+        // host settles outside the app. The backend may refuse it while the
+        // cleaner has not accepted yet — that must not block the host, who
+        // has nothing left to pay here, so they move on either way.
+        try {
+            await initiateHandCash(scheduleId).unwrap();
+        } catch (err) {
+            if (__DEV__) console.warn('initiateHandCash failed:', err);
+        }
+
         router.replace({
             pathname: '/host/payment/payment_success',
-            params: { scheduleId, total: String(paidTotal), method },
+            params: { scheduleId, total: String(total), method: selected },
         } as any);
-
-    const handleConfirm = async () => {
-        if (!scheduleId) return;
-
-        // Settling in cash needs no card: the backend asks the cleaner to
-        // approve, and the job proceeds outside Stripe.
-        if (selected === 'hand_cash') {
-            try {
-                await initiateHandCash(scheduleId).unwrap();
-                showToast(t("Cash payment requested — waiting for the cleaner."), 'success');
-            } catch (err) {
-                // Cash initiation logged; proceed to success screen so user is not stuck
-                console.warn('initiateHandCash error:', err);
-            }
-            goToSuccess(total, selected);
-            return;
-        }
-
-        try {
-            // 1. Create the escrow PaymentIntent (money is held until the host
-            //    validates the cleaning, then released to the cleaner).
-            const intent = await payForSchedule(scheduleId).unwrap();
-
-            // 2. The key belongs to the backend's Stripe account, so use the
-            //    one it just handed us rather than trusting the build env.
-            await initStripe({ publishableKey: intent.publishableKey });
-
-            // 3. Build the card sheet. No applePay/googlePay config is passed,
-            //    so Stripe presents card entry only.
-            const { error: initError } = await initPaymentSheet({
-                merchantDisplayName: 'Gestlio',
-                paymentIntentClientSecret: intent.paymentIntentClientSecret,
-                customerId: intent.customerId,
-                customerEphemeralKeySecret: intent.ephemeralKey,
-                allowsDelayedPaymentMethods: false,
-            });
-            if (initError) {
-                showToast(initError.message, 'error');
-                return;
-            }
-
-            // 4. Present it. A user-cancelled sheet is not an error worth a
-            //    red toast — they are simply back on this screen.
-            const { error: sheetError } = await presentPaymentSheet();
-            if (sheetError) {
-                if (sheetError.code !== 'Canceled') {
-                    showToast(sheetError.message, 'error');
-                }
-                return;
-            }
-
-            goToSuccess(fromCents(intent.amount), selected);
-        } catch (err) {
-            showToast(getApiErrorMessage(err, t("Payment could not be started.")), 'error');
-        }
     };
 
     if (isLoading && !schedule) {
@@ -218,7 +164,7 @@ export default function PaymentScreen() {
                 <View style={payStyles.section}>
                     {[
                         { icon: <CalendarIcon size={18} color={"#8E8E93"} />, label: t("Date"), value: data.date },
-                        { icon: <ClockIcon size={14} color={"#8E8E93"} />, label: t("Check-out / Check-in"), value: `${data.checkOut} ➔ ${data.checkIn}` },
+                        { icon: <ClockIcon size={14} color={"#8E8E93"} />, label: t("Arrival / Departure"), value: [data.slot.arrival, data.slot.departure].filter(Boolean).join(' ➔ ') },
                         { icon: <UserIcon size={14} color={"#8E8E93"} />, label: t("Housekeeper"), value: data.housekeeper },
                     ].map((row, idx, arr) => (
                         <React.Fragment key={row.label}>
@@ -264,33 +210,23 @@ export default function PaymentScreen() {
                     <Caption2 color={Colors.TEXT_COLOR} style={payStyles.label}>{t("PAYMENT METHOD")}</Caption2>
 
                     <PaymentOption
-                        method="card"
-                        label={t("Card")}
-                        selected={selected === 'card'}
-                        onPress={() => setSelected('card')}
-                        icon={<UserIcon size={18} color={Colors.TEXT_COLOR} />}
-                        rightIcons={
-                            <View style={{ flexDirection: 'row', gap: wp(4) }}>
-                                <AppImage source={IMAGE_COMPONENTS.americanEx} style={payStyles.payIcon} contentFit="contain" />
-                                <AppImage source={IMAGE_COMPONENTS.masterCard} style={payStyles.payIcon} contentFit="contain" />
-                            </View>
-                        }
-                    />
-                    <PaymentOption
                         method="hand_cash"
-                        label={t("Pay outside the platform")}
+                        label={t("Off-app payment")}
                         selected={selected === 'hand_cash'}
                         onPress={() => setSelected('hand_cash')}
                         icon={<UserIcon size={18} color={Colors.TEXT_COLOR} />}
                     />
+                    <Caption3 color={"#727272"}>
+                        {t("You settle the cleaning directly with the cleaner. Nothing is charged in the app.")}
+                    </Caption3>
                 </View>
             </ScrollView>
 
             {/* Footer */}
             <View style={payStyles.footer}>
                 <CustomButton
-                    title={isPaying || isRequestingCash ? t("Processing...") : t("Confirm")}
-                    disabled={isPaying || isRequestingCash}
+                    title={isRequestingCash ? t("Processing...") : t("Confirm")}
+                    disabled={isRequestingCash}
                     onPress={handleConfirm}
                     width="100%"
                     backgroundColor={"#0088FF"}

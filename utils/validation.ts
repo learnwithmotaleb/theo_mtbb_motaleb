@@ -1,11 +1,17 @@
+/**
+ * Spaces before or after an address are always accidental (autocomplete and
+ * phone keyboards add a trailing one), and the backend compares emails
+ * verbatim — " user@mail.com " would fail sign-in with "wrong email or
+ * password". Every auth request goes through this.
+ */
+export const normalizeEmail = (email?: string | null): string => (email ?? '').trim();
+
 export const validateEmail = (email: string): string => {
-  if (!email.trim()) return 'Email is required';
-
-  // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  // if (!emailRegex.test(email)) {
-  //   return 'Please enter a valid email address';
-  // }
-
+  const value = normalizeEmail(email);
+  if (!value) return 'Email is required';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    return 'Please enter a valid email address';
+  }
   return '';
 };
 

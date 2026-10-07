@@ -25,6 +25,9 @@ import { Provider } from 'react-redux';
 
 SplashScreen.preventAutoHideAsync();
 
+// Render errors anywhere below show a recovery screen instead of closing the app.
+export { AppErrorBoundary as ErrorBoundary } from '@/components/shared/AppErrorBoundary';
+
 function RootLayoutNav() {
     const colorScheme = useColorScheme();
     const [showAnimatedSplash, setShowAnimatedSplash] = useState(false);

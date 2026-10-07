@@ -1,5 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+import { hasFloorAndElevator, type AccommodationType } from '@/constants/accommodation';
+import { POSTAL_CODE_PATTERN } from '@/lib/frenchGeo';
+
 import type { PickedPhoto } from '../services/accommodationApi';
 
 /**
@@ -11,16 +14,20 @@ import type { PickedPhoto } from '../services/accommodationApi';
 export interface AccommodationDraft {
   // Step 1 — general information
   name: string;
-  accommodationType: 'House' | 'Apartment' | 'Studio' | 'Other';
+  /** '' until the host picks one — nothing is pre-selected. */
+  accommodationType: AccommodationType | '';
   address: string;
   city: string;
   zipCode: string;
+  /** Postal codes of the commune picked from the suggestions, if any. */
+  cityPostalCodes: string[];
 
   // Step 2 — accommodation details
   numberOfRooms: string;
   surface: string;
   floor: string;
-  hasElevator: boolean;
+  /** null until answered; only asked for apartments and studios. */
+  hasElevator: boolean | null;
   cleaningRate: string;
   notes: string;
 
@@ -40,28 +47,32 @@ export interface AccommodationDraft {
   editingId: string | null;
 }
 
+// Nothing is pre-filled: every answer is the host's own. Defaults here used to
+// leak into the form (3 rooms, an elevator, 10:00 → 14:00...) and were
+// mistaken for real values.
 const initialState: AccommodationDraft = {
   name: '',
-  accommodationType: 'Apartment',
+  accommodationType: '',
   address: '',
   city: '',
   zipCode: '',
+  cityPostalCodes: [],
 
-  numberOfRooms: '3',
+  numberOfRooms: '',
   surface: '',
   floor: '',
-  hasElevator: true,
+  hasElevator: null,
   cleaningRate: '',
   notes: '',
 
   photos: [],
 
-  keys: 'Key box at the entrance',
+  keys: '',
   accessCode: '',
   instructions: '',
-  frequency: 'Every week',
-  checkInTime: '14:00',
-  checkOutTime: '10:00',
+  frequency: '',
+  checkInTime: '',
+  checkOutTime: '',
 
   editingId: null,
 };
@@ -95,7 +106,10 @@ export default accommodationDraftSlice.reducer;
  * /accommodation/:id` expect. Numbers and booleans go out as strings; the
  * backend coerces them (see the zod preprocessors).
  */
-export const draftToFields = (draft: AccommodationDraft) => ({
+export const draftToFields = (draft: AccommodationDraft) => {
+  // A house has no floor or elevator; never send stale answers for one.
+  const inBuilding = hasFloorAndElevator(draft.accommodationType);
+  return {
   name: draft.name.trim(),
   accommodationType: draft.accommodationType,
   address: draft.address.trim(),
@@ -103,8 +117,8 @@ export const draftToFields = (draft: AccommodationDraft) => ({
   zipCode: draft.zipCode.trim(),
   numberOfRooms: draft.numberOfRooms,
   surface: draft.surface,
-  floor: draft.floor.trim(),
-  hasElevator: draft.hasElevator,
+  floor: inBuilding ? draft.floor.trim() : '',
+  hasElevator: inBuilding ? Boolean(draft.hasElevator) : false,
   cleaningRate: draft.cleaningRate,
   notes: draft.notes.trim(),
   keys: draft.keys,
@@ -113,21 +127,28 @@ export const draftToFields = (draft: AccommodationDraft) => ({
   frequency: draft.frequency,
   checkInTime: draft.checkInTime,
   checkOutTime: draft.checkOutTime,
-});
+  };
+};
 
-/** The fields the backend refuses to create an accommodation without. */
+/**
+ * What the backend requires before an accommodation can be posted. Shared by
+ * the property wizard and the host onboarding, which asks fewer questions, so
+ * step-specific answers (keys, elevator) are checked on their own steps.
+ * Returns the English message; screens pass it through `t()`.
+ */
 export const validateDraft = (draft: AccommodationDraft): string | null => {
   if (draft.name.trim().length < 2) return 'Enter an accommodation name.';
+  if (!draft.accommodationType) return 'Choose the type of accommodation.';
   if (draft.address.trim().length < 5) return 'Enter a full address.';
   if (!draft.city.trim()) return 'Enter a city.';
-  if (!draft.zipCode.trim()) return 'Enter a zip code.';
-  if (!Number(draft.numberOfRooms)) return 'Enter the number of rooms.';
-  if (!Number(draft.surface)) return 'Enter the surface area.';
-  if (draft.cleaningRate === '' || Number.isNaN(Number(draft.cleaningRate))) {
+  if (!POSTAL_CODE_PATTERN.test(draft.zipCode.trim())) return 'Enter a valid 5-digit postal code.';
+  if (!Number(draft.numberOfRooms)) return 'Choose the number of rooms.';
+  if (!(Number(draft.surface) > 0)) return 'Enter the surface area.';
+  if (draft.cleaningRate === '' || !(Number(draft.cleaningRate) >= 0)) {
     return 'Enter a cleaning rate.';
   }
   if (!draft.checkInTime || !draft.checkOutTime) {
-    return 'Enter the check-in and check-out times.';
+    return 'Choose the check-in and check-out times.';
   }
   return null;
 };

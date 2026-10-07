@@ -21,16 +21,20 @@ function loadTs(relativePath, dependencies) {
   return module.exports;
 }
 
-function setup(response, saveToken) {
+function setup(response, saveToken, onRequest = () => {}) {
   const slice = loadTs('src/redux/slices/authSlice.ts', {});
   const baseApi = createApi({
-    baseQuery: async () => response,
+    baseQuery: async (args) => {
+      onRequest(args);
+      return response;
+    },
     tagTypes: ['Auth', 'Me'],
     endpoints: () => ({}),
   });
   const { authApi } = loadTs('src/redux/services/authApi.ts', {
     '../api/baseApi': { baseApi, saveToken },
     '../slices/authSlice': slice,
+    '../../../utils/validation': loadTs('utils/validation.ts', {}),
   });
   const store = configureStore({
     reducer: { auth: slice.default, [baseApi.reducerPath]: baseApi.reducer },
@@ -84,5 +88,28 @@ test('failed login rejects without saving a token or authenticating', async () =
   await assert.rejects(request.unwrap(), (error) => error.status === 401);
   assert.equal(saves, 0);
   assert.equal(store.getState().auth.isAuthenticated, false);
+  store.dispatch(authApi.util.resetApiState());
+});
+
+test('sign-in trims spaces around the email before sending it', async () => {
+  const sent = [];
+  const response = { token: 'test-token', data: { role: 'host' }, message: 'Signed in' };
+  const { store, authApi } = setup({ data: response }, async () => {}, (args) => sent.push(args));
+  await store.dispatch(authApi.endpoints.signin.initiate({
+    email: '  user@email.com ', password: 'test-password',
+  })).unwrap();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].body.email, 'user@email.com');
+  assert.equal(sent[0].body.password, 'test-password', 'the password is never trimmed');
+  store.dispatch(authApi.util.resetApiState());
+});
+
+test('sign-up and password reset send the trimmed email too', async () => {
+  const sent = [];
+  const { store, authApi } = setup({ data: { success: true } }, async () => {}, (args) => sent.push(args));
+  await store.dispatch(authApi.endpoints.signup.initiate({ email: 'new@email.com ' })).unwrap();
+  await store.dispatch(authApi.endpoints.forgotPassword.initiate({ email: ' new@email.com' })).unwrap();
+  assert.deepEqual(sent.map((a) => a.body.email), ['new@email.com', 'new@email.com']);
+  assert.equal(store.getState().auth.pendingEmail, 'new@email.com');
   store.dispatch(authApi.util.resetApiState());
 });

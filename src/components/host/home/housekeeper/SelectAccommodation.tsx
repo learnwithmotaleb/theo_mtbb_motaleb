@@ -20,7 +20,7 @@ export function SelectAccommodation({
     accommodations,
     housekeeperName,
     onSendRequest,
-    buttonLabel = 'Send Request',
+    buttonLabel,
 }: Props) {
     const t = useT();
     const [selectedId, setSelectedId] = useState<string>(accommodations[0]?.id ?? '');
@@ -69,7 +69,7 @@ export function SelectAccommodation({
                 ListFooterComponent={
                     <View style={styles.noteBox}>
                         <Caption3 color={Colors.PRIMARY_TEXT}>
-                            {housekeeperName} will be notified
+                            {t("{name} will be notified", { name: housekeeperName })}
                         </Caption3>
                         <Caption4 color={Colors.TEXT_COLOR}>
                             {t("She will then be able to accept your invitation to begin working on the selected accommodation.")}
@@ -81,7 +81,7 @@ export function SelectAccommodation({
             {/* Footer */}
             <View style={styles.footer}>
                 <CustomButton
-                    title={buttonLabel}
+                    title={buttonLabel ?? t("Send Request")}
                     onPress={() => selectedItem && onSendRequest(selectedItem)}
                     width="100%"
                     backgroundColor={Colors.PRIMARY_TEXT}

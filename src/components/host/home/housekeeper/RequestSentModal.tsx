@@ -9,10 +9,14 @@ import { hp, wp } from '../../../../../utils/responsiveDevice';
 
 type Props = {
     visible: boolean;
+    /** Backdrop tap / hardware back. */
     onClose: () => void;
+    /** The button. Defaults to going back to the host home. */
+    onDone?: () => void;
+    doneLabel?: string;
 };
 
-export function RequestSentModal({ visible, onClose }: Props) {
+export function RequestSentModal({ visible, onClose, onDone, doneLabel }: Props) {
     const t = useT();
     const router = useRouter();
 
@@ -42,10 +46,12 @@ export function RequestSentModal({ visible, onClose }: Props) {
                     </Caption3>
 
                     <CustomButton
-                        title={t("Return to homepage")}
+                        title={doneLabel ?? t("Return to homepage")}
                         onPress={() => {
-                            onClose();
-                            router.replace('/host/(tabs)' as any);
+                            // One navigation only: calling onClose() here too
+                            // would pop the screen and then replace it again.
+                            if (onDone) onDone();
+                            else router.replace('/host/(tabs)' as any);
                         }}
                         width="100%"
                         backgroundColor={Colors.PRIMARY_TEXT}

@@ -20,7 +20,7 @@ import { useAssignCleanerMutation, useFindHousekeepersQuery } from '@/redux/serv
 import { useGetAccommodationsQuery } from '@/redux/services/accommodationApi';
 import { Accommodation } from '@/types/dataTypes';
 import { Housekeeper } from '@/types/dataTypes';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,6 +32,10 @@ export default function AddHousekeeperScreen() {
     const t = useT();
     const { formatMoney } = useFormat();
     const router = useRouter();
+    // Opened from a property's page: that property is the one being staffed,
+    // so the "choose a property" step is skipped entirely.
+    const { accommodationId: presetAccommodationId } =
+        useLocalSearchParams<{ accommodationId?: string }>();
     const [step, setStep] = useState<Step>('list');
     const [selectedHK, setSelectedHK] = useState<Housekeeper | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
@@ -78,17 +82,13 @@ export default function AddHousekeeperScreen() {
         setStep('detail');
     };
 
-    const handleAddHousekeeper = () => {
-        setStep('accommodation');
-    };
-
     // Sending the request creates a pending assignment; the cleaner sees it in
     // their Requests tab and accepts or refuses from there.
-    const handleSendRequest = async (selected: Accommodation) => {
-        if (!selectedHK) return;
+    const sendRequest = async (accommodationId: string) => {
+        if (!selectedHK || isAssigning) return;
         try {
             await assignCleaner({
-                accommodationId: selected.id,
+                accommodationId,
                 cleanerId: selectedHK.id,
                 role: 'primary',
             }).unwrap();
@@ -98,11 +98,21 @@ export default function AddHousekeeperScreen() {
         }
     };
 
+    const handleAddHousekeeper = () => {
+        if (presetAccommodationId) {
+            sendRequest(presetAccommodationId);
+            return;
+        }
+        setStep('accommodation');
+    };
+
+    const handleSendRequest = (selected: Accommodation) => sendRequest(selected.id);
+
     const getTitleByStep = (): string => {
         switch (step) {
-            case 'list': return 'Housekeepers';
-            case 'detail': return 'Housekeeper';
-            case 'accommodation': return 'Accommodation';
+            case 'list': return t('Housekeepers');
+            case 'detail': return t('Housekeeper');
+            case 'accommodation': return t('Accommodation');
         }
     };
 
@@ -210,6 +220,16 @@ export default function AddHousekeeperScreen() {
                     setModalVisible(false);
                     router.back();
                 }}
+                onDone={() => {
+                    setModalVisible(false);
+                    // Back to the property the host started from, else home.
+                    if (presetAccommodationId) {
+                        router.back();
+                    } else {
+                        router.replace('/host/(tabs)' as any);
+                    }
+                }}
+                doneLabel={presetAccommodationId ? t('Back to the property') : undefined}
             />
         </SafeAreaView>
     );

@@ -13,14 +13,13 @@ import { Body4, Body5, Body6, Body7, Caption2, Caption3, Caption5 } from '@/comp
 import { showToast } from '@/components/shared/Toast';
 import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { formatClock, toDateKey } from '@/lib/datetime';
+import { cleaningWindow, formatClock, toDateKey } from '@/lib/datetime';
 
 import { accommodationPhoto, avatarSource, personName } from '@/lib/mappers';
 import { computeSchedulePrice } from '@/lib/pricing';
 
 import { useGetAccommodationByIdQuery } from '@/redux/services/accommodationApi';
 import { useGetAccommodationCleanersQuery } from '@/redux/services/assignmentApi';
-import { usePlatformFeePercent } from '@/redux/services/miscApi';
 import { useCreateScheduleMutation } from '@/redux/services/scheduleApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -95,7 +94,6 @@ export default function RecommendedCleaningScreen() {
         skip: !accommodationId,
     });
     const [createSchedule, { isLoading: isCreating }] = useCreateScheduleMutation();
-    const feePercent = usePlatformFeePercent();
 
     // The cleaner the host came in with, else the accepted primary on this
     // accommodation. Only an accepted assignment can be scheduled.
@@ -115,10 +113,12 @@ export default function RecommendedCleaningScreen() {
 
     // Fall back to the times the host set on the accommodation when the
     // recommendation could not read them off the iCal booking.
-    const checkOutTime =
-        formatClock(params.checkOutTime) || formatClock(accommodation?.checkOutTime) || '10:00';
-    const checkInTime =
-        formatClock(params.checkInTime) || formatClock(accommodation?.checkInTime) || '14:00';
+    // The cleaner's slot runs from the guest's check-out to the next guest's
+    // check-in; ordered by clock time so it always reads arrival -> departure.
+    const { arrival, departure } = cleaningWindow(
+        formatClock(params.checkOutTime) || formatClock(accommodation?.checkOutTime) || '10:00',
+        formatClock(params.checkInTime) || formatClock(accommodation?.checkInTime) || '14:00',
+    );
 
     // Sent to the backend as YYYY-MM-DD; it resolves the day in the device's
     // timezone (x-timezone).
@@ -129,9 +129,8 @@ export default function RecommendedCleaningScreen() {
             computeSchedulePrice(
                 assignment?.pricePerCleaning,
                 accommodation?.cleaningRate,
-                feePercent,
             ),
-        [assignment, accommodation, feePercent],
+        [assignment, accommodation],
     );
 
     const data = useMemo(
@@ -150,16 +149,16 @@ export default function RecommendedCleaningScreen() {
                 month: 'long',
                 year: 'numeric',
             }),
-            checkOut: checkOutTime,
-            checkIn: checkInTime,
-            housekeeper: personName(cleaner, 'Not assigned'),
+            arrival,
+            departure,
+            housekeeper: personName(cleaner, t('Not assigned')),
             cleaner: {
-                name: personName(cleaner, 'Not assigned'),
+                name: personName(cleaner, t('Not assigned')),
                 completedCleanings: cleaner?.cleaningsCompleted ?? 0,
                 image: avatarSource(cleaner?.profileImage),
             },
         }),
-        [accommodation, params.date, checkOutTime, checkInTime, cleaner],
+        [accommodation, params.date, arrival, departure, cleaner, t, formatDate],
     );
 
     // Creates the schedule, then hands the payment screen its id. The cleaner
@@ -175,8 +174,10 @@ export default function RecommendedCleaningScreen() {
                 accommodationId,
                 cleanerId: (cleaner?._id as string) ?? assignment._id,
                 date: dateKey,
-                checkInTime,
-                checkOutTime,
+                // Guest check-out = cleaner arrives; next check-in = cleaner
+                // leaves (same convention as the manual scheduling screen).
+                checkOutTime: arrival,
+                checkInTime: departure,
             }).unwrap();
 
             router.push({
@@ -256,13 +257,13 @@ export default function RecommendedCleaningScreen() {
                     </Caption2>
                     <View style={cleanStyles.timeRow}>
                         <View style={{ flex: 1 }}>
-                            <Caption3 color={Colors.TEXT_COLOR}>{t("Check-out")}</Caption3>
-                            <Body5 color={Colors.PRIMARY_TEXT}>{data.checkOut}</Body5>
+                            <Caption3 color={Colors.TEXT_COLOR}>{t("Arrival")}</Caption3>
+                            <Body5 color={Colors.PRIMARY_TEXT}>{data.arrival}</Body5>
                         </View>
                         <View style={cleanStyles.timeDivider} />
                         <View style={{ flex: 1 }}>
-                            <Caption3 color={Colors.TEXT_COLOR}>{t("Check-in")}</Caption3>
-                            <Body5 color={Colors.PRIMARY_TEXT}>{data.checkIn}</Body5>
+                            <Caption3 color={Colors.TEXT_COLOR}>{t("Departure")}</Caption3>
+                            <Body5 color={Colors.PRIMARY_TEXT}>{data.departure}</Body5>
                         </View>
                     </View>
                     <Caption5 color={Colors.TEXT_COLOR} style={{ marginTop: hp(8) }}>
@@ -283,7 +284,7 @@ export default function RecommendedCleaningScreen() {
                                 <Caption2 color={"#727272"}>{t("CLEANER")}</Caption2>
                                 <Body4 color={Colors.PRIMARY_TEXT}>{data.cleaner.name}</Body4>
                                 <Caption2 color={Colors.TEXT_COLOR}>
-                                    {data.cleaner.completedCleanings} Cleaning completed
+                                    {t("{n} cleanings completed", { n: data.cleaner.completedCleanings })}
                                 </Caption2>
                             </View>
                             <Pressable
@@ -302,7 +303,12 @@ export default function RecommendedCleaningScreen() {
                 ) : (
                     <CustomButton
                         title={t("Assign Cleaner")}
-                        onPress={() => router.push('/host/home/add_houskeeper' as any)}
+                        onPress={() =>
+                            router.push({
+                                pathname: '/host/home/add_houskeeper',
+                                params: { accommodationId },
+                            } as any)
+                        }
                         backgroundColor={Colors.BORDER_COLOR}
                         color={Colors.PRIMARY_TEXT}
                         width="100%"
@@ -330,8 +336,8 @@ export default function RecommendedCleaningScreen() {
                     {/* <View style={cleanStyles.divider} /> */}
                     <SummaryRow
                         icon={<ClockIcon size={14} color={Colors.TEXT_COLOR} />}
-                        label={t("Check-out / Check-in")}
-                        value={`${data.checkOut}  →  ${data.checkIn}`}
+                        label={t("Arrival / Departure")}
+                        value={`${data.arrival}  →  ${data.departure}`}
                     />
                     {/* <View style={cleanStyles.divider} /> */}
                     <SummaryRow
@@ -351,7 +357,7 @@ export default function RecommendedCleaningScreen() {
                         value={formatMoney(price.cleaningService)}
                     />
                     <PriceRow
-                        label={`Service Fee (${price.feePercent}%)`}
+                        label={t("Service Fee")}
                         value={formatMoney(price.serviceFee)}
                     />
                     <PriceRow label={t("Total")} value={formatMoney(price.total)} bold />
@@ -361,7 +367,7 @@ export default function RecommendedCleaningScreen() {
             {/* Next button */}
             <View style={cleanStyles.footer}>
                 <CustomButton
-                    title={isCreating ? 'Scheduling...' : 'Next'}
+                    title={isCreating ? t("Scheduling...") : t("Next")}
                     onPress={handleNext}
                     disabled={!cleanerAssigned || isCreating}
                     width="100%"

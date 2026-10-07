@@ -4,6 +4,7 @@ import { RequestIcon } from "@/assets/icons/cleaner_icon/RequestIcon";
 import { HomeIcon } from "@/assets/icons/host_icon/HomeIcon";
 import { MessageIcon } from "@/assets/icons/host_icon/MessageIcon";
 import { PlanningIcon } from "@/assets/icons/host_icon/PlanningIcon";
+import { usePendingRequestCount } from '@/redux/services/assignmentApi';
 import { Tabs } from "expo-router";
 import React from "react";
 import { View } from "react-native";
@@ -26,6 +27,8 @@ const TabIcon = ({ focused, children }: { focused: boolean; children: React.Reac
 export default function PatientTabsLayout() {
     const t = useT();
     const insets = useSafeAreaInsets();
+    // New host requests show on the tab bar from any screen.
+    const pendingRequests = usePendingRequestCount();
 
     return (
         <Tabs
@@ -82,6 +85,8 @@ export default function PatientTabsLayout() {
                 name="request"
                 options={{
                     tabBarLabel: t("Request"),
+                    tabBarBadge: pendingRequests > 0 ? pendingRequests : undefined,
+                    tabBarBadgeStyle: { backgroundColor: '#FF383C', color: '#FFFFFF', fontSize: 11 },
                     tabBarIcon: ({ focused, color }) => (
                         <TabIcon focused={focused}>
                             <RequestIcon color={color} size={24} />

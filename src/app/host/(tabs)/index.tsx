@@ -17,8 +17,8 @@ import {
 } from '@/lib/mappers';
 import { useGetHostDashboardQuery } from '@/redux/services/accommodationApi';
 import { AppImage } from '@/components/shared/AppImage';
-import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useMemo } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
@@ -76,8 +76,19 @@ export default function HostHomeScreen() {
 
     // One request feeds both sections: the recommended turnovers derived from
     // the connected iCal feeds, and the activity the cleaners generated.
-    const { data, isLoading, refetch } = useGetHostDashboardQuery({ page: 1, limit: 20 });
+    const { data, isLoading, refetch } = useGetHostDashboardQuery(
+        { page: 1, limit: 20 },
+        { refetchOnFocus: true },
+    );
     const { refreshing, onRefresh } = useRefresh([refetch]);
+
+    // Cleaners answer from their own phone: refresh the to-do feed whenever
+    // the host comes back to this tab.
+    useFocusEffect(
+        useCallback(() => {
+            refetch();
+        }, [refetch]),
+    );
 
     const recommendations = useMemo(
         () => (data?.recommended_schedule ?? []) as ApiRecommendation[],
@@ -190,8 +201,7 @@ export default function HostHomeScreen() {
                     {t("Quick access")}
                 </Body2>
                 <QuickAccess
-                    onSchedule={() => router.push('/host/home/accommodation' as any)}
-                    onAddHousekeeper={() => router.push('/host/home/add_houskeeper')}
+                    onSchedule={() => router.push('/host/home/schedule_cleaning' as any)}
                 />
             </ScrollView>
         </SafeAreaView>

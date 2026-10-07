@@ -8,7 +8,7 @@ import { showToast } from '@/components/shared/Toast';
 import { Body5, Body6, Caption2, Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { formatClock } from '@/lib/datetime';
+import { cleaningHours, formatCleaningWindow } from '@/lib/datetime';
 import { toCleanerTask } from '@/lib/mappers';
 import {
     useGetScheduleByIdQuery,
@@ -66,21 +66,15 @@ export default function TaskDetailScreen() {
     // The estimation the backend derives is only on the mission-card payloads,
     // so it is recomputed here from the schedule's own times.
     const estimation = useMemo(() => {
-        const toMinutes = (value?: string) => {
-            const [h, m] = (value ?? '').split(':').map(Number);
-            return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
-        };
-        const start = toMinutes(schedule?.checkInTime);
-        const end = toMinutes(schedule?.checkOutTime);
-        if (start === null || end === null || end <= start) return '—';
-        return `${Math.round(((end - start) / 60) * 10) / 10}h`;
+        const hours = cleaningHours(schedule?.checkInTime, schedule?.checkOutTime);
+        return hours === null ? '—' : `${hours}h`;
     }, [schedule]);
 
     const task = {
         image: detail.image,
         apartmentName: detail.apartmentName,
         address: detail.address,
-        time: `${formatClock(schedule?.checkOutTime)} – ${formatClock(schedule?.checkInTime)}`,
+        time: formatCleaningWindow(schedule?.checkInTime, schedule?.checkOutTime),
         estimation,
     };
 

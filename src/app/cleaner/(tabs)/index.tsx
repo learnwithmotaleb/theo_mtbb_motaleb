@@ -11,11 +11,14 @@ import { useRefresh } from '@/hooks/useRefresh';
 import { personName, toCleanerTask } from '@/lib/mappers';
 import { useCurrentUser } from '@/redux/hooks';
 import { useGetCleanerHomeQuery } from '@/redux/services/scheduleApi';
+import { usePendingRequestCount } from '@/redux/services/assignmentApi';
+import { RequestIcon } from '@/assets/icons/cleaner_icon/RequestIcon';
+import { RightAngleIcon } from '@/assets/icons/common_icon/RightAngleIcon';
 import { CleanerTask } from '@/types/taskStatus';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
@@ -50,8 +53,11 @@ export default function CleanerHomeScreen() {
     const router = useRouter();
     const me = useCurrentUser();
 
-    const { data, isLoading, refetch } = useGetCleanerHomeQuery();
+    const { data, isLoading, refetch } = useGetCleanerHomeQuery(undefined, {
+        refetchOnFocus: true,
+    });
     const { refreshing, onRefresh } = useRefresh([refetch]);
+    const pendingRequests = usePendingRequestCount();
 
     // The backend resolves "today" in this device's timezone (x-timezone), so
     // the header date and the buckets always agree.
@@ -108,6 +114,31 @@ export default function CleanerHomeScreen() {
                     </View>
                 </View>
 
+                {/* New requests reminder — visible without opening the Requests tab */}
+                {pendingRequests > 0 && (
+                    <Pressable
+                        style={styles.requestBanner}
+                        onPress={() => router.navigate('/cleaner/(tabs)/request' as any)}
+                        accessibilityRole="button"
+                    >
+                        <View style={styles.requestIcon}>
+                            <RequestIcon color="#FFFFFF" size={20} />
+                            <View style={styles.requestDot} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Caption1 color={Colors.PRIMARY_TEXT}>
+                                {pendingRequests === 1
+                                    ? t("You have a new cleaning request")
+                                    : t("You have {n} new cleaning requests", { n: pendingRequests })}
+                            </Caption1>
+                            <Caption4 color={Colors.TEXT_COLOR}>
+                                {t("Tap to view and answer")}
+                            </Caption4>
+                        </View>
+                        <RightAngleIcon size={22} color={Colors.TEXT_COLOR} />
+                    </Pressable>
+                )}
+
                 {/* Today's Cleaning */}
                 <View style={styles.sectionHeader}>
                     <Body5 color={Colors.TEXT_COLOR}>{t("Today's Cleaning")}</Body5>
@@ -121,7 +152,7 @@ export default function CleanerHomeScreen() {
                         <EmptyTask
                             title={t("No task to do")}
                             subtitle={t("You have no pending task")}
-                            note="Enjoy your time"
+                            note={t("Enjoy your time")}
                         />
                     </View>
                 ) : (
@@ -143,7 +174,7 @@ export default function CleanerHomeScreen() {
                         <EmptyTask
                             title={t("No upcoming task to do")}
                             subtitle={t("You have no Upcoming task")}
-                            note="Enjoy your time"
+                            note={t("Enjoy your time")}
                         />
                     </View>
                 ) : (
@@ -178,6 +209,38 @@ const styles = StyleSheet.create({
         height: hp(40),
         backgroundColor: Colors.BORDER_COLOR,
         marginHorizontal: wp(16),
+    },
+
+    // New requests reminder
+    requestBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(12),
+        backgroundColor: '#FFF4E5',
+        borderRadius: wp(14),
+        borderWidth: 1,
+        borderColor: '#FF8D2840',
+        padding: wp(14),
+        marginBottom: hp(16),
+    },
+    requestIcon: {
+        width: wp(40),
+        height: wp(40),
+        borderRadius: wp(20),
+        backgroundColor: '#FF8D28',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    requestDot: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: wp(12),
+        height: wp(12),
+        borderRadius: wp(6),
+        backgroundColor: '#FF383C',
+        borderWidth: 2,
+        borderColor: '#FFF4E5',
     },
 
     // Section header

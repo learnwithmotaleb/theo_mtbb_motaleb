@@ -15,7 +15,8 @@ import type {
 
 import { resolveAssetUrl } from './config';
 import {
-  formatClock,
+  formatCleaningWindow,
+  formatDayKey,
   formatDate,
   formatTime,
   parseDate,
@@ -23,6 +24,8 @@ import {
   toDateKey,
 } from './datetime';
 import { formatMoney } from './pricing';
+import { t } from '@/i18n';
+import { keysText, roomsText } from '@/constants/accommodation';
 
 /**
  * expo-image `source`. Backend photos are relative paths; anything missing
@@ -106,15 +109,14 @@ export interface ApiRecommendation {
 export const toRecommendedSchedule = (rec: ApiRecommendation): RecommendedSchedule => {
   // The card shows the free window: cleaning starts at the guest's check-out
   // and must finish before the next guest checks in.
-  const from = formatClock(rec.checkOutTime);
-  const to = formatClock(rec.checkInTime);
+  const slot = formatCleaningWindow(rec.checkOutTime, rec.checkInTime);
 
   return {
     id: rec.accommodation._id,
     apartmentName: rec.accommodation.name,
     idealDate: formatDate(rec.recommendedDate, { day: 'numeric', month: 'long' }),
-    timeSlot: from && to ? `${from} – ${to}` : from || to || 'Flexible',
-    cleanerName: personName(rec.cleaner, 'No cleaner'),
+    timeSlot: slot || t('Flexible'),
+    cleanerName: personName(rec.cleaner, t('No cleaner')),
     cleanerImage: avatarSource(rec.cleaner?.profileImage),
     apartmentImage: accommodationPhoto(rec.accommodation),
   };
@@ -152,12 +154,37 @@ const todoStatus = (event: ApiTodoEvent): TaskStatus => {
   }
 };
 
+/**
+ * The backend sends its card labels in English ("Cleaner accepted your
+ * request"), so the label is rebuilt from the event's kind and status in the
+ * app's language. An unknown combination falls back to the backend text, run
+ * through the catalog in case it has a translation.
+ */
+const TODO_LABELS: Record<string, string> = {
+  'assignment:pending': 'Invitation sent – waiting for acceptance',
+  'assignment:accepted': 'Cleaner accepted your request',
+  'assignment:refused': 'Cleaner declined your request',
+  'schedule:scheduled': 'Cleaning request sent',
+  'schedule:accepted': 'Cleaner accepted the cleaning',
+  'schedule:refused': 'Cleaner declined the cleaning',
+  'schedule:in_progress': 'Cleaning in progress',
+  'schedule:proof_submitted': 'Cleaning to validate',
+  'schedule:completed': 'Cleaning completed',
+  'schedule:disputed': 'Problem reported',
+  'schedule:cancelled': 'Cleaning cancelled',
+};
+
+export const todoLabel = (event: Pick<ApiTodoEvent, 'kind' | 'status' | 'label'>): string => {
+  const key = TODO_LABELS[`${event.kind}:${event.status}`];
+  return key ? t(key) : t(event.label ?? '');
+};
+
 export const toTodoTask = (event: ApiTodoEvent): Task => ({
   // The id is the underlying record's id, so the detail screen can refetch it.
   id: event.scheduleId ?? event.assignmentId ?? `${event.kind}-${event.timestamp}`,
   status: todoStatus(event),
-  statusLabel: event.label,
-  apartmentName: event.accommodation?.name ?? 'Accommodation',
+  statusLabel: todoLabel(event),
+  apartmentName: event.accommodation?.name ?? t('Accommodation'),
   timeAgo: relativeFromNow(event.timestamp),
   cleanerName: personName(event.cleaner),
   cleanerImage: avatarSource(event.cleaner?.profileImage),
@@ -187,12 +214,14 @@ export const toHousingItem = (accommodation: ApiAccommodation): HousingItem => (
   name: accommodation.name,
   location: accommodation.city || accommodation.address || '',
   image: accommodationPhoto(accommodation),
+  // A refused invitation is history, not a cleaner of this property.
   cleaners: (accommodation.assignedCleaners ?? [])
-    .filter((entry) => entry.cleaner)
+    .filter((entry) => entry.cleaner && entry.status !== 'refused')
     .map<Cleaner>((entry) => ({
       id: entry.cleaner!._id,
       name: personName(entry.cleaner),
       image: avatarSource(entry.cleaner!.profileImage),
+      status: entry.status,
     })),
 });
 
@@ -200,11 +229,11 @@ export const toHousingItem = (accommodation: ApiAccommodation): HousingItem => (
 
 export const toUiHousekeeper = (cleaner: Housekeeper) => ({
   id: cleaner._id,
-  name: personName(cleaner, 'Housekeeper'),
-  role: 'Housekeeper',
+  name: personName(cleaner, t('Housekeeper')),
+  role: t('Housekeeper'),
   location: cleaner.interventionZone || cleaner.workCity || '',
   interventionZone: cleaner.interventionZone || cleaner.workCity || '',
-  appExperience: `${cleaner.cleaningsCompleted ?? 0} cleanings completed`,
+  appExperience: t('{n} cleanings completed', { n: cleaner.cleaningsCompleted ?? 0 }),
   memberSince: cleaner.createdAt ? formatDate(cleaner.createdAt as string, {
     month: 'long',
     year: 'numeric',
@@ -240,10 +269,10 @@ export const toCleanerTask = (mission: MissionCard): CleanerTask & {
 
   return {
     id: mission._id,
-    apartmentName: accommodation?.name ?? 'Accommodation',
+    apartmentName: accommodation?.name ?? t('Accommodation'),
     address: accommodationLocation(accommodation),
-    date: mission.dayLabel || formatDate(mission.date),
-    time: `${formatClock(mission.checkOutTime)} – ${formatClock(mission.checkInTime)}`,
+    date: formatDayKey(mission.dayKey) || formatDate(mission.date, { weekday: 'long', day: 'numeric', month: 'long' }),
+    time: formatCleaningWindow(mission.checkInTime, mission.checkOutTime),
     image: accommodationPhoto(accommodation),
     // "Principal" = this cleaner is the primary on the assignment, not a
     // substitute standing in for them.
@@ -253,20 +282,20 @@ export const toCleanerTask = (mission: MissionCard): CleanerTask & {
     type: accommodation?.accommodationType ?? '',
     surface: accommodation?.surface ? `${accommodation.surface}m²` : '',
     floor: accommodation?.floor ? String(accommodation.floor) : '',
-    rooms: accommodation?.numberOfRooms ? `${accommodation.numberOfRooms} Rooms` : '',
+    rooms: roomsText(accommodation?.numberOfRooms),
     bathrooms: accommodation?.numberOfBathrooms
-      ? `${accommodation.numberOfBathrooms} Bathrooms`
+      ? t('{n} bathrooms', { n: accommodation.numberOfBathrooms })
       : '',
-    access: accommodation?.hasElevator ? 'Elevator' : 'Stairs',
+    access: accommodation?.hasElevator ? t('Elevator') : t('Stairs'),
     cleaningRate: formatMoney(
       assignment?.pricePerCleaning ?? accommodation?.cleaningRate ?? 0,
     ),
-    keyBox: accommodation?.keys ? 'Yes' : 'No',
+    keyBox: keysText(accommodation?.keys) || '—',
     keyBoxCode: accommodation?.accessCode ?? accommodation?.doorCode ?? '',
     specificInstruction: accommodation?.instructions ?? mission.notes ?? '',
 
     client: {
-      name: personName(host, 'Host'),
+      name: personName(host, t('Host')),
       phone: host?.phone ?? '',
       image: hostAvatarSource(host),
     },
@@ -290,7 +319,7 @@ export const toCleanerRequest = (assignment: CleanerAssignment) => {
   return {
     id: assignment._id,
     accommodationId: accommodation?._id ?? '',
-    apartmentName: accommodation?.name ?? 'Accommodation',
+    apartmentName: accommodation?.name ?? t('Accommodation'),
     address: accommodationLocation(accommodation),
     pricePerCleaning: formatMoney(
       assignment.pricePerCleaning ?? accommodation?.cleaningRate ?? 0,
@@ -300,7 +329,7 @@ export const toCleanerRequest = (assignment: CleanerAssignment) => {
     status: assignment.status,
     role: assignment.role,
     hostId: host?._id ?? '',
-    hostName: personName(host, 'Host'),
+    hostName: personName(host, t('Host')),
     hostImage: hostAvatarSource(host),
     hostProperties: host?.totalProperties ?? 0,
     hostMemberSince: host?.memberSince
@@ -381,7 +410,7 @@ export const toCalendarEvents = (month: any): CalendarEvent[] => {
       platform: knownPlatform(booking.platform),
       cleanerImage: avatarSource(schedule?.cleaner?.profileImage),
       hasManualCleaning: Boolean(schedule && !schedule.booking),
-      cleaningTime: schedule ? `${formatClock(schedule.checkOutTime)} - ${formatClock(schedule.checkInTime)}` : '',
+      cleaningTime: schedule ? formatCleaningWindow(schedule.checkInTime, schedule.checkOutTime) : '',
     };
   });
 };
@@ -398,9 +427,9 @@ export const toListEvents = (list: any): ListEvent[] =>
       checkOut: stayLabel(booking.endDate),
       platform: knownPlatform(booking.platform),
       cleanerImage: avatarSource(schedule?.cleaner?.profileImage),
-      cleaningLabel: schedule ? 'Scheduled Cleaning' : 'No cleaning scheduled',
+      cleaningLabel: schedule ? t('Scheduled Cleaning') : t('No cleaning scheduled'),
       cleaningTime: schedule
-        ? `${formatDate(schedule.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${formatClock(schedule.checkOutTime)} - ${formatClock(schedule.checkInTime)}`
+        ? `${formatDate(schedule.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${formatCleaningWindow(schedule.checkInTime, schedule.checkOutTime)}`
         : '',
       hasManualCleaning: Boolean(schedule && !schedule.booking),
     };
