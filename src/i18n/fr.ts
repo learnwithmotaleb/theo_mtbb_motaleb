@@ -432,7 +432,7 @@ export const fr: Record<string, string> = {
   'This alert will be removed from the home screen.': 'Cette alerte sera retirée de l\'écran d\'accueil.',
   'Ok': 'OK',
   'Checklist Header': 'Check-list',
-  'Cleaning completed on Thursday, June 12 at 10:00 AM': 'Ménage terminé le jeudi 12 juin à 10h00',
+  'Cleaning completed on {date}': 'Ménage terminé le {date}',
   'Date:': 'Date :',
   'Time:': 'Heure :',
   'Invalidated': 'Invalider',

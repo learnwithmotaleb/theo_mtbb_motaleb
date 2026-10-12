@@ -10,7 +10,7 @@
     "ios": {
       "icon": "./assets/images/icon1.png",
       "bundleIdentifier": "com.gestlio.app",
-      "buildNumber": "11",
+      "buildNumber": "13",
       "supportsTablet": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Gestlio needs access to your photos so you can add pictures of your accommodation and upload proof of a completed cleaning.",
@@ -28,7 +28,7 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
       "package": "com.gestlio.app",
-      "versionCode": 13,
+      "versionCode": 15,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",

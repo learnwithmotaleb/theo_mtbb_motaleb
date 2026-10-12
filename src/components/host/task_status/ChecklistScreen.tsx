@@ -45,7 +45,7 @@ export function ChecklistScreen({
                 <View style={{ marginTop: hp(10) }}>
                     <Body4 color={Colors.PRIMARY_TEXT}>{t("Checklist Header")}</Body4>
                     <Caption3 color={Colors.TEXT_COLOR} style={{ marginBottom: hp(16) }}>
-                        {t("Cleaning completed on Thursday, June 12 at 10:00 AM")}
+                        {data.date ? t("Cleaning completed on {date}", { date: data.date }) : t("Cleaning completed")}
                     </Caption3>
                 </View>
 
