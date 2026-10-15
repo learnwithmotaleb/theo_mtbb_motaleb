@@ -12,6 +12,8 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     Image,
+    KeyboardAvoidingView,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -76,81 +78,87 @@ export default function AccommodationScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
-           <SectionTitle/>
+            <SectionTitle />
 
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
             >
-                {/* <StepIndicator total={4} current={1} /> */}
-
-                <H2 align="center" color={Colors.TEXT_COLOR} style={styles.title}>
-                    {t("Let's start with your accommodation")}
-                </H2>
-                <Body6 align="center" color={Colors.TEXT_COLOR} style={styles.subtitle}>
-                    {t("Give it a name and add a photo so you can find it easily.")}
-                </Body6>
-
-                {/* Name input */}
-                <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                    {t("Accommodation Name")}
-                </Body5>
-                <View style={[styles.inputBox, nameError ? styles.inputError : null]}>
-                    <TextInput
-                        style={styles.input}
-                        value={name}
-                        onChangeText={(t) => {
-                            setName(t);
-                            if (t.trim()) setNameError('');
-                        }}
-                        placeholder={t("Accommodation name here")}
-                        placeholderTextColor={Colors.PLACEHOLDER_TEXT}
-                    />
-                </View>
-                {nameError ? (
-                    <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                        {nameError}
-                    </Caption1>
-                ) : null}
-
-                {/* Photo upload */}
-                <Pressable
-                    style={styles.photoBox}
-                    onPress={pickImage}
+                <ScrollView
+                    contentContainerStyle={styles.scroll}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    {photoUri ? (
-                        <Image
-                            source={{ uri: photoUri }}
-                            style={styles.photoPreview}
-                            resizeMode="cover"
+                    {/* <StepIndicator total={4} current={1} /> */}
+
+                    <H2 align="center" color={Colors.TEXT_COLOR} style={styles.title}>
+                        {t("Let's start with your accommodation")}
+                    </H2>
+                    <Body6 align="center" color={Colors.TEXT_COLOR} style={styles.subtitle}>
+                        {t("Give it a name and add a photo so you can find it easily.")}
+                    </Body6>
+
+                    {/* Name input */}
+                    <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
+                        {t("Accommodation Name")}
+                    </Body5>
+                    <View style={[styles.inputBox, nameError ? styles.inputError : null]}>
+                        <TextInput
+                            style={styles.input}
+                            value={name}
+                            onChangeText={(t) => {
+                                setName(t);
+                                if (t.trim()) setNameError('');
+                            }}
+                            placeholder={t("Accommodation name here")}
+                            placeholderTextColor={Colors.PLACEHOLDER_TEXT}
                         />
-                    ) : (
-                        <View style={styles.photoPlaceholder}>
-                            {/* Dark room background image placeholder */}
-                            <View style={styles.photoOverlay} />
-                            <View style={styles.uploadCta}>
-                                <CameraIcon size={32} color="#FFFFFF" />
-                                <Caption1
-                                    color="#FFFFFF"
-                                    style={styles.uploadText}
-                                >
-                                    {t("Upload here")}
-                                </Caption1>
-                            </View>
-                        </View>
-                    )}
-                </Pressable>
-            </ScrollView>
+                    </View>
+                    {nameError ? (
+                        <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
+                            {nameError}
+                        </Caption1>
+                    ) : null}
 
-            <View style={styles.footer}>
-                <Pressable
-                    style={styles.btn}
-                    onPress={handleContinue}
-                >
-                    <ButtonText color={Colors.TEXT_WHITE}>{t("Continue")}</ButtonText>
-                </Pressable>
-            </View>
+                    {/* Photo upload */}
+                    <Pressable
+                        style={styles.photoBox}
+                        onPress={pickImage}
+                    >
+                        {photoUri ? (
+                            <Image
+                                source={{ uri: photoUri }}
+                                style={styles.photoPreview}
+                                resizeMode="cover"
+                            />
+                        ) : (
+                            <View style={styles.photoPlaceholder}>
+                                {/* Dark room background image placeholder */}
+                                <View style={styles.photoOverlay} />
+                                <View style={styles.uploadCta}>
+                                    <CameraIcon size={32} color="#FFFFFF" />
+                                    <Caption1
+                                        color="#FFFFFF"
+                                        style={styles.uploadText}
+                                    >
+                                        {t("Upload here")}
+                                    </Caption1>
+                                </View>
+                            </View>
+                        )}
+                    </Pressable>
+                </ScrollView>
+
+                <View style={styles.footer}>
+                    <Pressable
+                        style={styles.btn}
+                        onPress={handleContinue}
+                    >
+                        <ButtonText color={Colors.TEXT_WHITE}>{t("Continue")}</ButtonText>
+                    </Pressable>
+                </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
@@ -159,11 +167,11 @@ const styles = StyleSheet.create({
     safe: {
         flex: 1,
         backgroundColor: Colors.APP_BACKGROUND,
-         paddingHorizontal: wp(20),
+        paddingHorizontal: wp(20),
     },
-   
+
     scroll: {
-       marginTop:hp(20),
+        marginTop: hp(20),
         paddingBottom: hp(20),
     },
     title: {

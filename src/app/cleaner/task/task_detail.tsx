@@ -8,7 +8,7 @@ import { showToast } from '@/components/shared/Toast';
 import { Body5, Body6, Caption2, Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { cleaningHours, formatCleaningWindow } from '@/lib/datetime';
+import { cleaningHours, extractCleaningDuration, formatCleaningWindow } from '@/lib/datetime';
 import { toCleanerTask } from '@/lib/mappers';
 import {
     useGetScheduleByIdQuery,
@@ -66,6 +66,8 @@ export default function TaskDetailScreen() {
     // The estimation the backend derives is only on the mission-card payloads,
     // so it is recomputed here from the schedule's own times.
     const estimation = useMemo(() => {
+        const hostDuration = extractCleaningDuration(schedule?.accommodation, schedule);
+        if (hostDuration) return hostDuration;
         const hours = cleaningHours(schedule?.checkInTime, schedule?.checkOutTime);
         return hours === null ? '—' : `${hours}h`;
     }, [schedule]);

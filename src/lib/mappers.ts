@@ -161,27 +161,49 @@ const todoStatus = (event: ApiTodoEvent): TaskStatus => {
  * through the catalog in case it has a translation.
  */
 const TODO_LABELS: Record<string, string> = {
-  'assignment:pending': 'Invitation sent – waiting for acceptance',
-  'assignment:accepted': 'Cleaner accepted your request',
-  'assignment:refused': 'Cleaner declined your request',
-  'schedule:scheduled': 'Cleaning request sent',
-  'schedule:accepted': 'Cleaner accepted the cleaning',
-  'schedule:refused': 'Cleaner declined the cleaning',
-  'schedule:in_progress': 'Cleaning in progress',
-  'schedule:proof_submitted': 'Cleaning to validate',
-  'schedule:completed': 'Cleaning completed',
-  'schedule:disputed': 'Problem reported',
-  'schedule:cancelled': 'Cleaning cancelled',
+  'assignment:pending': 'Demande en attente',
+  'assignment:accepted': 'Demande acceptée',
+  'assignment:refused': 'Demande refusée',
+  'schedule:scheduled': 'Ménage planifié – En attente de validation',
+  'schedule:pending': 'Ménage planifié – En attente de validation',
+  'schedule:accepted': 'Ménage validé',
+  'schedule:refused': 'Ménage refusé',
+  'schedule:in_progress': 'Ménage en cours',
+  'schedule:proof_submitted': 'Preuve de ménage à valider',
+  'schedule:completed': 'Preuve de ménage à valider',
+  'schedule:disputed': 'Problème signalé',
+  'schedule:cancelled': 'Ménage annulé',
 };
 
 export const todoLabel = (event: Pick<ApiTodoEvent, 'kind' | 'status' | 'label'>): string => {
   const key = TODO_LABELS[`${event.kind}:${event.status}`];
-  return key ? t(key) : t(event.label ?? '');
+  if (key) return t(key);
+  if (event.label) {
+    if (/refused/i.test(event.label) || /declined/i.test(event.label)) {
+      return event.kind === 'schedule' ? t('Ménage refusé') : t('Demande refusée');
+    }
+    if (/accepted/i.test(event.label) || /valid/i.test(event.label)) {
+      return event.kind === 'schedule' ? t('Ménage validé') : t('Demande acceptée');
+    }
+    if (/proof|validate|preuve/i.test(event.label)) {
+      return t('Preuve de ménage à valider');
+    }
+    if (/schedule|planifi/i.test(event.label)) {
+      return t('Ménage planifié – En attente de validation');
+    }
+    if (/pending|attente/i.test(event.label)) {
+      return event.kind === 'schedule' ? t('Ménage planifié – En attente de validation') : t('Demande en attente');
+    }
+    return t(event.label);
+  }
+  return '';
 };
 
 export const toTodoTask = (event: ApiTodoEvent): Task => ({
   // The id is the underlying record's id, so the detail screen can refetch it.
   id: event.scheduleId ?? event.assignmentId ?? `${event.kind}-${event.timestamp}`,
+  recordId: event.scheduleId ?? event.assignmentId ?? undefined,
+  kind: event.kind,
   status: todoStatus(event),
   statusLabel: todoLabel(event),
   apartmentName: event.accommodation?.name ?? t('Accommodation'),
@@ -396,13 +418,14 @@ export const toCalendarEvents = (month: any): CalendarEvent[] => {
     scheduleByDay.set(toDateKey(schedule.date), schedule);
   });
 
-  return bookings.map((booking) => {
+  const bookedEvents = bookings.map((booking) => {
     const checkoutKey = toDateKey(booking.endDate);
     const schedule = scheduleByDay.get(checkoutKey);
     const checkoutDate = parseDate(booking.endDate);
 
     return {
       id: String(booking._id),
+      scheduleId: schedule ? String(schedule._id) : undefined,
       // The grid keys cells by day-of-month; the cleaning happens at check-out.
       date: checkoutDate ? checkoutDate.getDate() : 1,
       checkIn: stayLabel(booking.startDate),
@@ -413,11 +436,36 @@ export const toCalendarEvents = (month: any): CalendarEvent[] => {
       cleaningTime: schedule ? formatCleaningWindow(schedule.checkInTime, schedule.checkOutTime) : '',
     };
   });
+
+  // Also include standalone cleanings that do not correspond to an iCal booking
+  const coveredDates = new Set(bookings.map((b) => toDateKey(b.endDate)));
+  const standaloneEvents: CalendarEvent[] = [];
+  schedules.forEach((schedule) => {
+    const sDateKey = toDateKey(schedule.date);
+    if (!coveredDates.has(sDateKey)) {
+      const sDate = parseDate(schedule.date);
+      if (sDate) {
+        standaloneEvents.push({
+          id: String(schedule._id),
+          scheduleId: String(schedule._id),
+          date: sDate.getDate(),
+          checkIn: '',
+          checkOut: formatDate(schedule.date, { weekday: 'short', day: 'numeric', month: 'short' }),
+          platform: 'other',
+          cleanerImage: avatarSource(schedule.cleaner?.profileImage),
+          hasManualCleaning: true,
+          cleaningTime: formatCleaningWindow(schedule.checkInTime, schedule.checkOutTime),
+        });
+      }
+    }
+  });
+
+  return [...bookedEvents, ...standaloneEvents];
 };
 
-/** `GET /calendar/:id/list` already pairs each booking with its cleaning. */
-export const toListEvents = (list: any): ListEvent[] =>
-  (list?.items ?? []).map((item: any) => {
+/** `GET /calendar/:id/list` pairs each booking with its cleaning, and includes standalone cleanings. */
+export const toListEvents = (list: any): ListEvent[] => {
+  const items: ListEvent[] = (list?.items ?? []).map((item: any) => {
     const booking = item.booking ?? {};
     const schedule = item.schedule ?? null;
     return {
@@ -434,3 +482,25 @@ export const toListEvents = (list: any): ListEvent[] =>
       hasManualCleaning: Boolean(schedule && !schedule.booking),
     };
   });
+
+  // Add schedules that don't belong to any booking in the list
+  const schedules: any[] = list?.schedules ?? [];
+  const coveredScheduleIds = new Set(items.map((i) => i.scheduleId).filter(Boolean));
+  schedules.forEach((s) => {
+    if (!coveredScheduleIds.has(String(s._id))) {
+      items.push({
+        id: String(s._id),
+        scheduleId: String(s._id),
+        checkIn: '',
+        checkOut: formatDate(s.date, { weekday: 'short', day: 'numeric', month: 'short' }),
+        platform: 'other',
+        cleanerImage: avatarSource(s.cleaner?.profileImage),
+        cleaningLabel: t('Scheduled Cleaning'),
+        cleaningTime: `${formatDate(s.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${formatCleaningWindow(s.checkInTime, s.checkOutTime)}`,
+        hasManualCleaning: true,
+      });
+    }
+  });
+
+  return items;
+};

@@ -83,6 +83,21 @@ export default function CleanerPaymentScreen() {
                     </View>
                 </View>
 
+                {/* Stripe explanation / security banner */}
+                <View style={ribStyles.stripeBanner}>
+                    <View style={ribStyles.stripeIconWrapper}>
+                        <BankIcon size={20} color={Colors.BRAND_PRIMARY} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Caption2 color={Colors.PRIMARY_TEXT}>
+                            {t("Secure payments via Stripe")}
+                        </Caption2>
+                        <Caption3 color={Colors.TEXT_COLOR} style={{ marginTop: hp(4) }}>
+                            {t("To receive payments from hosts safely, Gestlio uses Stripe. Click the button below to create or connect your Stripe account, provide your bank details, and start receiving your payouts.")}
+                        </Caption3>
+                    </View>
+                </View>
+
                 {/* Payout account */}
                 <View style={ribStyles.card}>
                     <View style={ribStyles.primaryBadge}>
@@ -90,7 +105,7 @@ export default function CleanerPaymentScreen() {
                             <StepIndecatorFillIcon color={onboarded ? '#34C759' : '#8E8E93'} />
                         </View>
                         <Caption3 color={Colors.TEXT_COLOR}>
-                            {onboarded ? 'PAYOUTS ACTIVE' : 'PAYOUTS NOT SET UP'}
+                            {onboarded ? t("PAYOUTS ACTIVE") : t("PAYOUTS NOT SET UP")}
                         </Caption3>
                     </View>
 
@@ -109,11 +124,11 @@ export default function CleanerPaymentScreen() {
                         <>
                             <CopyField
                                 label={t("Details submitted")}
-                                value={status?.detailsSubmitted ? 'Yes' : 'No'}
+                                value={status?.detailsSubmitted ? t("Yes") : t("No")}
                             />
                             <CopyField
                                 label={t("Payouts enabled")}
-                                value={status?.payoutsEnabled ? 'Yes' : 'No'}
+                                value={status?.payoutsEnabled ? t("Yes") : t("No")}
                             />
                         </>
                     )}
@@ -126,10 +141,10 @@ export default function CleanerPaymentScreen() {
                         <EditPenIcon size={16} color={Colors.TEXT_COLOR} />
                         <Body6 color={Colors.TEXT_COLOR}>
                             {isStarting
-                                ? 'Opening...'
+                                ? t("Opening...")
                                 : onboarded
-                                  ? 'Update my payout details'
-                                  : 'Set up payouts'}
+                                  ? t("Update my payout details")
+                                  : t("Set up payouts")}
                         </Body6>
                     </Pressable>
                 </View>
@@ -144,7 +159,7 @@ export default function CleanerPaymentScreen() {
                             {t("Why set up payouts?")}
                         </Caption2>
                         <Caption3 color={Colors.TEXT_COLOR} style={{ marginTop: hp(4) }}>
-                            {t("Hosts pay into escrow and the money is released to you once a cleaning is validated. Until payouts are set up, hosts cannot pay for your missions. Your bank details are held by Stripe, never by this app.")}
+                            {t("Hosts pay into escrow and the money is released to you once a cleaning is validated. Until payouts are set up, hosts cannot pay for your missions. Your bank details are held securely by Stripe, never by this app.")}
                         </Caption3>
                     </View>
                 </View>
@@ -244,6 +259,25 @@ const ribStyles = StyleSheet.create({
         width: wp(32), height: wp(32),
         borderRadius: wp(16),
         backgroundColor: Colors.BORDER_COLOR,
+        alignItems: 'center', justifyContent: 'center',
+    },
+
+    // Stripe banner
+    stripeBanner: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: wp(12),
+        padding: wp(16),
+        backgroundColor: "#0088FF14",
+        borderRadius: wp(14),
+        borderWidth: 1,
+        borderColor: "#0088FF33",
+        marginBottom: hp(16),
+    },
+    stripeIconWrapper: {
+        width: wp(36), height: wp(36),
+        borderRadius: wp(18),
+        backgroundColor: "#0088FF1A",
         alignItems: 'center', justifyContent: 'center',
     },
 });

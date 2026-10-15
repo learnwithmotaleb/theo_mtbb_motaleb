@@ -34,6 +34,7 @@ function TimeDropdown({
     value: string;
     onChange: (v: string) => void;
 }) {
+    const t = useT();
     const [open, setOpen] = useState(false);
 
     return (
@@ -43,7 +44,7 @@ function TimeDropdown({
                 onPress={() => setOpen(true)}
             >
                 <Body6 color={Colors.PLACEHOLDER_TEXT}>
-                    {prefix}:{' '}
+                    {t(prefix)} :{' '}
                     <Body6 color={Colors.PRIMARY_TEXT}>{value}</Body6>
                 </Body6>
                 <DownArrowIcon size={20} color={Colors.TEXT_COLOR} />

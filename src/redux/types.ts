@@ -35,6 +35,7 @@ export interface User {
   isVerified: boolean;
   isDeleted: boolean;
   // Cleaner profile fields
+  siretNumber?: string | null;
   interventionZone?: string | null;
   workCity?: string | null;
   serviceRadius?: number | null;

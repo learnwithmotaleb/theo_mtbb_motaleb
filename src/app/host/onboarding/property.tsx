@@ -6,7 +6,9 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     FlatList,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -165,64 +167,70 @@ export default function PropertyScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
-           <SectionTitle/>
+            <SectionTitle />
 
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
             >
-                <H2 align="center" color={Colors.TEXT_COLOR} style={styles.title}>
-                    {t("Tell us about your property")}
-                </H2>
-                <Body6 align="center" color={Colors.TEXT_COLOR} style={styles.subtitle}>
-                    {t("This information helps us estimate the time and cost of the cleaning.")}
-                </Body6>
+                <ScrollView
+                    contentContainerStyle={styles.scroll}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <H2 align="center" color={Colors.TEXT_COLOR} style={styles.title}>
+                        {t("Tell us about your property")}
+                    </H2>
+                    <Body6 align="center" color={Colors.TEXT_COLOR} style={styles.subtitle}>
+                        {t("This information helps us estimate the time and cost of the cleaning.")}
+                    </Body6>
 
-                <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                    {t("Property type")}
-                </Body5>
-                <Dropdown value={type} options={PROPERTY_TYPES} onChange={setType} />
+                    <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
+                        {t("Property type")}
+                    </Body5>
+                    <Dropdown value={type} options={PROPERTY_TYPES} onChange={setType} />
 
-                <Counter label={t("Number of bedrooms")} value={bedrooms} onChange={setBedrooms} />
-                <Counter label={t("Number of bathrooms")} value={bathrooms} onChange={setBathrooms} />
-                <Counter label={t("Number of toilets")} value={toilets} onChange={setToilets} />
+                    <Counter label={t("Number of bedrooms")} value={bedrooms} onChange={setBedrooms} />
+                    <Counter label={t("Number of bathrooms")} value={bathrooms} onChange={setBathrooms} />
+                    <Counter label={t("Number of toilets")} value={toilets} onChange={setToilets} />
 
-                <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                    {t("Surface area (m²)")}
-                </Body5>
-                <View style={[styles.inputBox, surfaceError ? styles.inputError : null]}>
-                    <TextInput
-                        style={styles.input}
-                        value={surface}
-                        onChangeText={(t) => {
-                            setSurface(t);
-                            if (t.trim()) setSurfaceError('');
-                        }}
-                        placeholder="Ex: 75"
-                        placeholderTextColor={Colors.PLACEHOLDER_TEXT}
-                        keyboardType="numeric"
+                    <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
+                        {t("Surface area (m²)")}
+                    </Body5>
+                    <View style={[styles.inputBox, surfaceError ? styles.inputError : null]}>
+                        <TextInput
+                            style={styles.input}
+                            value={surface}
+                            onChangeText={(t) => {
+                                setSurface(t);
+                                if (t.trim()) setSurfaceError('');
+                            }}
+                            placeholder={t("Ex: 75")}
+                            placeholderTextColor={Colors.PLACEHOLDER_TEXT}
+                            keyboardType="numeric"
+                        />
+                    </View>
+                    {surfaceError ? (
+                        <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
+                            {t(surfaceError)}
+                        </Caption1>
+                    ) : null}
+                </ScrollView>
+
+                <View style={styles.footer}>
+                    <CustomButton
+                        onPress={handleContinue}
+                        title={t("Continue")}
+                        backgroundColor={Colors.BG_BLACK}
+                        width="100%"
+                        height={hp(54)}
+                        borderRadius={wp(14)}
+                        isLoading={isLoading}
+                        disabled={isLoading}
                     />
                 </View>
-                {surfaceError ? (
-                    <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                        {t(surfaceError)}
-                    </Caption1>
-                ) : null}
-            </ScrollView>
-
-            <View style={styles.footer}>
-                <CustomButton
-                    onPress={handleContinue}
-                    title={t("Continue")}
-                    backgroundColor={Colors.BG_BLACK}
-                    width="100%"
-                    height={hp(54)}
-                    borderRadius={wp(14)}
-                    isLoading={isLoading}
-                    disabled={isLoading}
-                />
-            </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
@@ -231,7 +239,7 @@ const styles = StyleSheet.create({
     safe: {
         flex: 1,
         backgroundColor: Colors.APP_BACKGROUND,
-         paddingHorizontal: wp(20),
+        paddingHorizontal: wp(20),
     },
     backBtn: {
         marginTop: hp(12),

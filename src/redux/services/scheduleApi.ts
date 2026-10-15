@@ -240,3 +240,17 @@ export const {
   useApproveHandCashMutation,
   useGetScheduleByIdQuery,
 } = scheduleApi;
+
+export const usePendingScheduleCount = (options?: { skip?: boolean }): number => {
+  const { data } = scheduleApi.useGetCleanerSchedulesQuery(
+    { status: 'scheduled', page: 1, limit: 1 },
+    {
+      skip: options?.skip,
+      pollingInterval: 60_000,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+      refetchOnMountOrArgChange: 30,
+    },
+  );
+  return data?.meta?.total ?? data?.data?.length ?? 0;
+};

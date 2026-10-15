@@ -5,7 +5,9 @@ import { AcceptedInvitationScreen } from '@/components/host/task_status/Accepted
 import { AlertScreen } from '@/components/host/task_status/AlertScreen';
 import { ChecklistScreen } from '@/components/host/task_status/ChecklistScreen';
 import { CleanerDenyScreen } from '@/components/host/task_status/CleanerDenyScreen';
+import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
+import { AppImage } from '@/components/shared/AppImage';
 import { showToast } from '@/components/shared/Toast';
 import { Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
@@ -33,14 +35,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { wp } from '../../../../utils/responsiveDevice';
+import { hp, wp } from '../../../../utils/responsiveDevice';
 
 const TITLE_MAP: Record<TaskStatus, string> = {
-    refused: 'Cleaner Deny',
-    completed: 'Checklist Header',
-    report_problem: 'Alert',
-    pending_accept: 'Accepted invitation',
-    scheduled: 'Scheduled',
+    refused: 'Demande refusée',
+    completed: 'Preuve de ménage à valider',
+    report_problem: 'Problème signalé',
+    pending_accept: 'Demande acceptée',
+    scheduled: 'Ménage planifié',
 };
 
 export default function TaskStatusScreen() {
@@ -240,16 +242,93 @@ export default function TaskStatusScreen() {
 
             default:
                 return (
-                    <Caption3 color={Colors.TEXT_COLOR}>
-                        {t("This mission is on track — nothing to do right now.")}
-                    </Caption3>
+                    <View style={styles.scheduledCard}>
+                        <View style={styles.accomHeader}>
+                            <AppImage
+                                source={accommodationPhoto(accommodation)}
+                                style={styles.thumb}
+                                contentFit="cover"
+                            />
+                            <View style={{ flex: 1, gap: 4 }}>
+                                <Caption3 color={Colors.TEXT_COLOR}>{t("ACCOMMODATION")}</Caption3>
+                                <Caption3 color={Colors.PRIMARY_TEXT} style={{ fontWeight: '600' }}>
+                                    {accommodation?.name ?? ''}
+                                </Caption3>
+                                <Caption3 color={Colors.TEXT_COLOR}>
+                                    {accommodationLocation(accommodation)}
+                                </Caption3>
+                            </View>
+                        </View>
+
+                        <View style={styles.detailDivider} />
+
+                        <View style={styles.detailRow}>
+                            <Caption3 color={Colors.TEXT_COLOR}>{t("Housekeeper")}</Caption3>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <AppImage
+                                    source={avatarSource(cleaner?.profileImage)}
+                                    style={styles.cleanerAvatar}
+                                    contentFit="cover"
+                                />
+                                <Caption3 color={Colors.PRIMARY_TEXT}>
+                                    {personName(cleaner, t('Not assigned'))}
+                                </Caption3>
+                            </View>
+                        </View>
+
+                        {schedule?.date ? (
+                            <View style={styles.detailRow}>
+                                <Caption3 color={Colors.TEXT_COLOR}>{t("Date")}</Caption3>
+                                <Caption3 color={Colors.PRIMARY_TEXT}>
+                                    {formatDate(schedule.date, { weekday: 'long', day: 'numeric', month: 'long' })}
+                                </Caption3>
+                            </View>
+                        ) : null}
+
+                        {timeSlot ? (
+                            <View style={styles.detailRow}>
+                                <Caption3 color={Colors.TEXT_COLOR}>{t("Time slot")}</Caption3>
+                                <Caption3 color={Colors.PRIMARY_TEXT}>{timeSlot}</Caption3>
+                            </View>
+                        ) : null}
+
+                        <View style={styles.statusNoteBox}>
+                            <Caption3 color={Colors.COLOR_ACTIVE}>
+                                {t("Ménage planifié – En attente de validation par l'agent d'entretien.")}
+                            </Caption3>
+                        </View>
+
+                        {cleaner?._id ? (
+                            <CustomButton
+                                title={t("Contacter l'agent d'entretien")}
+                                onPress={contactCleaner}
+                                backgroundColor={Colors.BRAND_PRIMARY}
+                                color="#fff"
+                                width="100%"
+                                height={hp(48)}
+                                borderRadius={wp(8)}
+                                style={{ marginTop: hp(16) }}
+                            />
+                        ) : null}
+
+                        <CustomButton
+                            title={t("Retour à l'accueil")}
+                            onPress={() => router.back()}
+                            backgroundColor={Colors.INPUT_BACKGROUND}
+                            color={Colors.PRIMARY_TEXT}
+                            width="100%"
+                            height={hp(48)}
+                            borderRadius={wp(8)}
+                            style={{ marginTop: hp(10) }}
+                        />
+                    </View>
                 );
         }
     };
 
     return (
         <SafeAreaView style={styles.safe}>
-            <SectionTitle title={TITLE_MAP[status]} />
+            <SectionTitle title={t(TITLE_MAP[status])} />
             <View style={styles.content}>
                 {isLoading && !schedule ? (
                     <SkeletonDetail />
@@ -268,4 +347,44 @@ const styles = StyleSheet.create({
         paddingHorizontal: wp(20),
     },
     content: { flex: 1 },
+    scheduledCard: {
+        backgroundColor: Colors.INPUT_BACKGROUND,
+        borderRadius: wp(14),
+        padding: wp(16),
+        gap: wp(12),
+        marginTop: wp(10),
+    },
+    accomHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(12),
+    },
+    thumb: {
+        width: wp(80),
+        height: wp(80),
+        borderRadius: wp(10),
+    },
+    detailDivider: {
+        height: 1,
+        backgroundColor: Colors.BORDER_COLOR,
+        marginVertical: wp(4),
+    },
+    detailRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: wp(4),
+    },
+    cleanerAvatar: {
+        width: wp(24),
+        height: wp(24),
+        borderRadius: wp(12),
+    },
+    statusNoteBox: {
+        backgroundColor: Colors.APP_BACKGROUND,
+        borderRadius: wp(8),
+        padding: wp(10),
+        marginTop: wp(6),
+        alignItems: 'center',
+    },
 });

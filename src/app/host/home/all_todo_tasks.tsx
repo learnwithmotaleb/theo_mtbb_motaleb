@@ -9,7 +9,9 @@ import { Task } from '@/types/hostTypes';
 import { useRefresh } from '@/hooks/useRefresh';
 import { toDateKey } from '@/lib/datetime';
 import { ApiTodoEvent, toTodoTask } from '@/lib/mappers';
-import { useGetHostDashboardQuery } from '@/redux/services/accommodationApi';
+import { showToast } from '@/components/shared/Toast';
+import { getApiErrorMessage } from '@/lib/apiError';
+import { useDeleteTodoItemMutation, useGetHostDashboardQuery } from '@/redux/services/accommodationApi';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -23,9 +25,16 @@ export default function AllToDoTasksScreen() {
 
     const { data, isLoading, refetch } = useGetHostDashboardQuery({ page: 1, limit: 100 });
     const { refreshing, onRefresh } = useRefresh([refetch]);
+    const [deleteTodoItem] = useDeleteTodoItemMutation();
 
+    // Filter out informational 'in_progress' tasks that don't need host action
     const events = useMemo(
-        () => (data?.to_do?.data ?? []) as ApiTodoEvent[],
+        () =>
+            ((data?.to_do?.data ?? []) as ApiTodoEvent[]).filter(
+                (event) =>
+                    event.status !== 'in_progress' &&
+                    !/progress|en\s*cours/i.test(event.label || ''),
+            ),
         [data],
     );
 
@@ -38,14 +47,14 @@ export default function AllToDoTasksScreen() {
             const key = toDateKey(event.timestamp);
             const label =
                 key === today
-                    ? 'Today'
+                    ? t('Today')
                     : formatDate(event.timestamp, { day: 'numeric', month: 'long' });
             if (!byDay.has(key)) byDay.set(key, { date: label, tasks: [] });
             byDay.get(key)!.tasks.push(toTodoTask(event));
         });
 
         return Array.from(byDay.values());
-    }, [events]);
+    }, [events, formatDate, t]);
 
     const handleTaskPress = (item: Task) => {
         const source = events.find(
@@ -59,6 +68,21 @@ export default function AllToDoTasksScreen() {
                 status: item.status,
             },
         } as any);
+    };
+
+    const handleDeleteTask = async (task: Task) => {
+        const source = events.find(
+            (event) => (event.scheduleId ?? event.assignmentId) === task.id,
+        );
+        const kind = source?.kind ?? task.kind ?? 'schedule';
+        const id = source?.scheduleId ?? source?.assignmentId ?? task.recordId ?? task.id;
+        try {
+            await deleteTodoItem({ kind, id }).unwrap();
+            showToast(t("Notification removed"), 'success');
+            refetch();
+        } catch (err) {
+            showToast(getApiErrorMessage(err, t("Could not remove notification.")), 'error');
+        }
     };
 
     return (
@@ -92,7 +116,11 @@ export default function AllToDoTasksScreen() {
                         {/* Task cards */}
                         {group.tasks.map((task) => (
                             <View key={task.id} style={styles.cardWrap}>
-                                <ToDoCard item={task} onPress={handleTaskPress} />
+                                <ToDoCard
+                                    item={task}
+                                    onPress={handleTaskPress}
+                                    onDelete={handleDeleteTask}
+                                />
                             </View>
                         ))}
                     </View>
