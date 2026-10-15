@@ -14,7 +14,11 @@ import { cleaningWindow } from '@/lib/datetime';
 import { accommodationPhoto, personName } from '@/lib/mappers';
 import { computeSchedulePrice } from '@/lib/pricing';
 
+import { InfoIcon } from '@/assets/icons/common_icon/InfoIcon';
+import { useAppDispatch } from '@/redux/hooks';
+import { accommodationApi } from '@/redux/services/accommodationApi';
 import {
+    scheduleApi,
     useGetScheduleByIdQuery,
     useInitiateHandCashMutation,
 } from '@/redux/services/scheduleApi';
@@ -67,6 +71,7 @@ export default function PaymentScreen() {
     const t = useT();
     const { formatDate, formatMoney } = useFormat();
     const router = useRouter();
+    const dispatch = useAppDispatch();
     const { scheduleId } = useLocalSearchParams<{ scheduleId: string }>();
     const [selected, setSelected] = useState<PaymentMethod>('hand_cash');
 
@@ -77,6 +82,7 @@ export default function PaymentScreen() {
 
     const accommodation = useMemo(() => (schedule?.accommodation ?? {}) as any, [schedule]);
     const cleaner = useMemo(() => (schedule?.cleaner ?? {}) as any, [schedule]);
+    const cleanerHasStripe = Boolean(cleaner?.stripeOnboardingComplete || cleaner?.payoutsEnabled);
     const assignment = schedule?.assignment as any;
 
     const price = useMemo(
@@ -123,6 +129,10 @@ export default function PaymentScreen() {
         } catch (err) {
             if (__DEV__) console.warn('initiateHandCash failed:', err);
         }
+
+        // Invalidate tags so dashboard, calendar, and schedule immediately update
+        dispatch(accommodationApi.util.invalidateTags(['Accommodation', 'HostDashboard', 'Calendar']));
+        dispatch(scheduleApi.util.invalidateTags(['Schedule', 'Calendar', 'HostDashboard']));
 
         router.replace({
             pathname: '/host/payment/payment_success',
@@ -209,6 +219,15 @@ export default function PaymentScreen() {
                 <View style={payStyles.section}>
                     <Caption2 color={Colors.TEXT_COLOR} style={payStyles.label}>{t("PAYMENT METHOD")}</Caption2>
 
+                    {!cleanerHasStripe && (
+                        <View style={payStyles.noticeBox}>
+                            <InfoIcon size={18} color="#0088FF" />
+                            <Caption3 color={Colors.TEXT_COLOR} style={{ flex: 1 }}>
+                                {t("L'agent d'entretien n'a pas encore configuré Stripe pour les paiements en ligne. Le règlement s'effectuera directement avec lui hors de l'application.")}
+                            </Caption3>
+                        </View>
+                    )}
+
                     <PaymentOption
                         method="hand_cash"
                         label={t("Off-app payment")}
@@ -244,6 +263,17 @@ const payStyles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.APP_BACKGROUND,
         paddingHorizontal: wp(20),
+    },
+    noticeBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(10),
+        backgroundColor: '#F0F8FF',
+        borderRadius: wp(10),
+        borderWidth: 1,
+        borderColor: '#B8E0FF',
+        padding: wp(12),
+        marginVertical: hp(10),
     },
     scroll: { paddingBottom: hp(100) },
     section: {

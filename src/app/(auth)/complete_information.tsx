@@ -143,7 +143,7 @@ export default function CompleteInformationScreen() {
 
                 <StepIndicator
                     totalSteps={4}
-                    currentStep={3}
+                    currentStep={4}
                     activeColor={Colors.BRAND_PRIMARY}
                     inactiveColor={Colors.BRAND_PRIMARY}
                 />
@@ -168,7 +168,7 @@ export default function CompleteInformationScreen() {
                                 value={values[FORM_FIELDS.FULL_NAME]}
                                 onChangeText={(text) => handleChange(FORM_FIELDS.FULL_NAME, text)}
                                 type="text"
-                                placeholder={t("e.g. John")}
+                                placeholder=""
                                 leftIcon={<UserIcon size={16} color="#8C88A3" />}
                                 error={errors[FORM_FIELDS.FULL_NAME]}
                                 touched={touched[FORM_FIELDS.FULL_NAME]}
@@ -182,7 +182,7 @@ export default function CompleteInformationScreen() {
                                 value={(values as any).lastName ?? ''}
                                 onChangeText={(text) => handleChange('lastName' as any, text)}
                                 type="text"
-                                placeholder={t("e.g. Doe")}
+                                placeholder=""
                                 leftIcon={<UserIcon size={16} color="#8C88A3" />}
                                 error={(errors as any).lastName}
                                 touched={(touched as any).lastName}

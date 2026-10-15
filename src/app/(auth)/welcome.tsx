@@ -149,21 +149,24 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         borderWidth: 1,
         borderColor: Colors.BORDER_COLOR,
-        padding: wp(20),
+        padding: wp(18),
+        marginBottom: hp(24),
     },
     nextTitle: {
-        marginBottom: hp(16),
+        marginBottom: hp(14),
     },
     nextRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: hp(14),
+        marginBottom: hp(12),
     },
     nextIconWrapper: {
         marginRight: wp(12),
     },
     footer: {
+        width: '100%',
         gap: hp(12),
-        // paddingBottom: hp(32),
+        paddingBottom: hp(24),
+        paddingTop: hp(8),
     },
 });

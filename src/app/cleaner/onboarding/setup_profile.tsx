@@ -73,7 +73,7 @@ export default function SetupProfileScreen() {
         try {
             await updateMe(onboardingToForm(payload)).unwrap();
             dispatch(resetOnboarding());
-            router.push('/cleaner/onboarding/you_are_ready');
+            router.replace('/cleaner/onboarding/you_are_ready' as any);
         } catch (err) {
             showToast(getApiErrorMessage(err, t("Could not save your profile.")), 'error');
         }

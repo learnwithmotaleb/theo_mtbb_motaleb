@@ -13,7 +13,7 @@ import { getApiErrorMessage } from '@/lib/apiError';
 import { accommodationLocation, accommodationPhoto, personName } from '@/lib/mappers';
 import {
     useGetMyCleanerAccommodationsQuery,
-    useRespondToAssignmentMutation,
+    useRemoveAssignmentMutation,
 } from '@/redux/services/assignmentApi';
 import { AppImage } from '@/components/shared/AppImage';
 import React, { useMemo } from 'react';
@@ -102,7 +102,7 @@ export default function MyClientsScreen() {
         limit: 50,
     });
     const { refreshing, onRefresh } = useRefresh([refetch]);
-    const [respond] = useRespondToAssignmentMutation();
+    const [removeAssignment] = useRemoveAssignmentMutation();
 
     const clients = useMemo<Client[]>(
         () =>
@@ -120,11 +120,12 @@ export default function MyClientsScreen() {
         [data],
     );
 
-    // Refusing an accepted assignment is how a cleaner steps away from it.
+    // Deleting/leaving an accepted assignment uses DELETE /assignment/:id
     const handleRemove = async (assignmentId: string) => {
         try {
-            await respond({ assignmentId, action: 'refuse' }).unwrap();
-            showToast(t("You have left this client"), 'success');
+            await removeAssignment(assignmentId).unwrap();
+            showToast(t("Client removed successfully"), 'success');
+            refetch();
         } catch (err) {
             showToast(getApiErrorMessage(err, t("Could not update the assignment.")), 'error');
         }

@@ -10,8 +10,7 @@ import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { useCurrentUser } from '@/redux/hooks';
 import { useCreateSupportTicketMutation } from '@/redux/services/miscApi';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
     FlatList, Modal, Pressable, ScrollView,
     StyleSheet,
@@ -26,18 +25,15 @@ const MAX_MSG = 1000;
 
 export function HelpSupportScreen() {
     const t = useT();
-    const router = useRouter();
     const me = useCurrentUser();
     const [subject, setSubject] = useState('');
     const [dropOpen, setDropOpen] = useState(false);
-    const [email, setEmail] = useState('');
+    const [emailInput, setEmail] = useState<string | null>(null);
     const [message, setMessage] = useState('');
     const [createTicket, { isLoading }] = useCreateSupportTicketMutation();
 
     // Pre-fill with the signed-in address; the user can still change it.
-    useEffect(() => {
-        if (me?.email) setEmail((current) => current || me.email);
-    }, [me]);
+    const email = emailInput ?? me?.email ?? '';
 
     const handleSend = async () => {
         if (!subject || !email.trim() || !message.trim()) {
@@ -82,7 +78,7 @@ export function HelpSupportScreen() {
                 <Body5 color={Colors.TEXT_COLOR} style={styles.label}>{t("Subject")}</Body5>
                 <Pressable style={styles.dropdown} onPress={() => setDropOpen(true)}>
                     <Body6 color={subject ? Colors.PRIMARY_TEXT : Colors.TEXT_COLOR}>
-                        {subject || t("Choose a subject")}
+                        {subject ? t(subject) : t("Choose a subject")}
                     </Body6>
                     <Body6 color={Colors.TEXT_COLOR}>
                         <DownArrowIcon color='#4B4B4B' />
@@ -101,7 +97,7 @@ export function HelpSupportScreen() {
                                         onPress={() => { setSubject(item); setDropOpen(false); }}
                                     >
                                         <Body6 color={item === subject ? Colors.BRAND_PRIMARY : Colors.PRIMARY_TEXT}>
-                                            {item}
+                                            {t(item)}
                                         </Body6>
                                     </Pressable>
                                 )}

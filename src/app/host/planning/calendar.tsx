@@ -58,9 +58,12 @@ export default function CalendarScreen() {
             name: accommodation?.name ?? '',
             location: accommodation?.city || accommodation?.address || '',
             image: accommodationPhoto(accommodation),
-            hasCalendarData: (connections ?? []).length > 0,
+            hasCalendarData:
+                (connections ?? []).length > 0 ||
+                (monthData?.schedules ?? []).length > 0 ||
+                (monthData?.bookings ?? []).length > 0,
         }),
-        [accommodation, connections, propertyId],
+        [accommodation, connections, monthData, propertyId],
     );
 
     const calendarEvents = useMemo(() => toCalendarEvents(monthData), [monthData]);
@@ -82,14 +85,19 @@ export default function CalendarScreen() {
                 <View style={styles.propertyCard}>
                     <AppImage source={property.image} style={styles.thumb} contentFit="cover" />
                     <View style={styles.propertyInfo}>
-                        <Body7 color={Colors.TEXT_COLOR} numberOfLines={2}>
+                        <Body7 color={Colors.PRIMARY_TEXT} numberOfLines={1}>
                             {property.name}
                         </Body7>
                         <View style={styles.row}>
-                            <LocationIcon size={18} color={Colors.TEXT_COLOR} />
-                            <Caption3 color={Colors.TEXT_COLOR}>{property.location}</Caption3>
+                            <LocationIcon size={16} color={Colors.TEXT_COLOR} />
+                            <Caption3 color={Colors.TEXT_COLOR} numberOfLines={1}>{property.location}</Caption3>
                         </View>
                     </View>
+                    <Pressable style={styles.calendarsBtn} onPress={handleConnectCalendar}>
+                        <Caption3 color={Colors.PRIMARY_TEXT} style={{ fontFamily: 'Poppins_500Medium' }}>
+                            {t("Calendars")}
+                        </Caption3>
+                    </Pressable>
                 </View>
 
                 {/* Tab toggle */}
@@ -117,6 +125,9 @@ export default function CalendarScreen() {
                             onConnectCalendar={handleConnectCalendar}
                             hasData={property.hasCalendarData}
                             events={calendarEvents}
+                            monthData={monthData}
+                            currentYear={cursor.year}
+                            currentMonth={cursor.month - 1}
                             accommodationId={property.id}
                             onMonthChange={(year, month) =>
                                 setCursor({ year, month: month + 1 })
@@ -133,26 +144,24 @@ export default function CalendarScreen() {
                 </View>
             </View>
 
-            {/* Add a Manual Cleaning button — শুধু hasData true হলে দেখাবে */}
-            {property.hasCalendarData && (
-                <View style={styles.footer}>
-                    <CustomButton
-                        title={t('Add a Manual Cleaning')}
-                        onPress={() =>
-                            router.push({
-                                pathname: '/host/home/schedule_cleaning',
-                                params: { accommodationId: property.id },
-                            } as any)
-                        }
-                        width="100%"
-                        backgroundColor="#0088FF"
-                        color="#fff"
-                        borderRadius={wp(8)}
-                        height={hp(52)}
-                        icon={<PlusIcon color='#fff' />}
-                    />
-                </View>
-            )}
+            {/* Add a Manual Cleaning button */}
+            <View style={styles.footer}>
+                <CustomButton
+                    title={t('Add a Manual Cleaning')}
+                    onPress={() =>
+                        router.push({
+                            pathname: '/host/home/schedule_cleaning',
+                            params: { accommodationId: property.id },
+                        } as any)
+                    }
+                    width="100%"
+                    backgroundColor="#0088FF"
+                    color="#fff"
+                    borderRadius={wp(8)}
+                    height={hp(52)}
+                    icon={<PlusIcon color='#fff' />}
+                />
+            </View>
         </SafeAreaView>
     );
 }
@@ -165,22 +174,30 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        marginTop: hp(20),
+        marginTop: hp(16),
     },
     propertyCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: wp(12),
-        marginBottom: hp(16),
+        gap: wp(10),
+        marginBottom: hp(14),
     },
-    thumb: { width: wp(130), height: hp(70), borderRadius: wp(10) },
-    propertyInfo: { flex: 1, gap: hp(4) },
+    thumb: { width: wp(90), height: hp(65), borderRadius: wp(10) },
+    propertyInfo: { flex: 1, gap: hp(3) },
     row: { flexDirection: 'row', alignItems: 'center', gap: wp(4) },
+    calendarsBtn: {
+        paddingHorizontal: wp(14),
+        paddingVertical: hp(8),
+        borderRadius: wp(10),
+        borderWidth: 1,
+        borderColor: Colors.BORDER_COLOR,
+        backgroundColor: Colors.INPUT_BACKGROUND,
+    },
     tabWrapper: {
         flexDirection: 'row',
         borderRadius: wp(12),
         padding: wp(4),
-        marginBottom: hp(16),
+        marginBottom: hp(14),
         gap: wp(8),
     },
     tabBtn: {
@@ -195,7 +212,7 @@ const styles = StyleSheet.create({
     },
     tabContent: { flex: 1 },
     footer: {
-        // paddingVertical: hp(16),
+        paddingVertical: hp(12),
         backgroundColor: Colors.APP_BACKGROUND,
     },
 });
