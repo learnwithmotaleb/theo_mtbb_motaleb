@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "fix/client-feedback-oct-2026",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "fix/client-feedback-oct-2026": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "fix/client-feedback-oct-2026",
+    "origin"
+  ]
+}

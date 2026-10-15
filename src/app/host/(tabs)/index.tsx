@@ -15,7 +15,9 @@ import {
     toRecommendedSchedule,
     toTodoTask,
 } from '@/lib/mappers';
-import { useGetHostDashboardQuery } from '@/redux/services/accommodationApi';
+import { showToast } from '@/components/shared/Toast';
+import { getApiErrorMessage } from '@/lib/apiError';
+import { useDeleteTodoItemMutation, useGetHostDashboardQuery } from '@/redux/services/accommodationApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
@@ -81,6 +83,7 @@ export default function HostHomeScreen() {
         { refetchOnFocus: true },
     );
     const { refreshing, onRefresh } = useRefresh([refetch]);
+    const [deleteTodoItem] = useDeleteTodoItemMutation();
 
     // Cleaners answer from their own phone: refresh the to-do feed whenever
     // the host comes back to this tab.
@@ -96,8 +99,14 @@ export default function HostHomeScreen() {
     );
     const topRecommendation = recommendations[0];
 
+    // Filter out in_progress tasks that don't need host action
     const todoEvents = useMemo(
-        () => (data?.to_do?.data ?? []) as ApiTodoEvent[],
+        () =>
+            ((data?.to_do?.data ?? []) as ApiTodoEvent[]).filter(
+                (event) =>
+                    event.status !== 'in_progress' &&
+                    !/progress|en\s*cours/i.test(event.label || ''),
+            ),
         [data],
     );
     const todoTasks = useMemo(() => todoEvents.map(toTodoTask), [todoEvents]);
@@ -115,6 +124,21 @@ export default function HostHomeScreen() {
                 status: item.status,
             },
         } as any);
+    };
+
+    const handleDeleteTask = async (task: Task) => {
+        const source = todoEvents.find(
+            (event) => (event.scheduleId ?? event.assignmentId) === task.id,
+        );
+        const kind = source?.kind ?? task.kind ?? 'schedule';
+        const id = source?.scheduleId ?? source?.assignmentId ?? task.recordId ?? task.id;
+        try {
+            await deleteTodoItem({ kind, id }).unwrap();
+            showToast(t("Notification removed"), 'success');
+            refetch();
+        } catch (err) {
+            showToast(getApiErrorMessage(err, t("Could not remove notification.")), 'error');
+        }
     };
 
     return (
@@ -181,7 +205,11 @@ export default function HostHomeScreen() {
                         data={visibleTasks}
                         keyExtractor={(item) => item.id}
                         renderItem={({ item }) => (
-                            <ToDoCard item={item} onPress={handleTaskPress} />
+                            <ToDoCard
+                                item={item}
+                                onPress={handleTaskPress}
+                                onDelete={handleDeleteTask}
+                            />
                         )}
                         scrollEnabled={false}
                         contentContainerStyle={styles.todoList}

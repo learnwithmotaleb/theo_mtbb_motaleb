@@ -1,10 +1,11 @@
-import { Caption3, Caption4 } from '@/components/typo/Typography';
+import { LeftAngleIcon } from '@/assets/icons/common_icon/LiftAngleIcon';
+import { RightAngleIcon } from '@/assets/icons/common_icon/RightAngleIcon';
+import { Body4, Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { useIntlLocale } from '@/i18n';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { hp, wp } from '../../../../utils/responsiveDevice';
-
 
 // ISO string: "2026-05-15"
 function toISO(date: Date): string {
@@ -14,12 +15,15 @@ function toISO(date: Date): string {
     return `${y}-${m}-${d}`;
 }
 
-// পুরো মাসের date array তৈরি করা
-function getMonthDates(year: number, month: number): Date[] {
+// Generate continuous dates across multiple months (e.g. 1 month before to 12 months ahead)
+function getRangeDates(baseDate: Date, monthsBefore = 1, monthsAhead = 12): Date[] {
     const days: Date[] = [];
-    const totalDays = new Date(year, month + 1, 0).getDate();
-    for (let d = 1; d <= totalDays; d++) {
-        days.push(new Date(year, month, d));
+    const start = new Date(baseDate.getFullYear(), baseDate.getMonth() - monthsBefore, 1);
+    const end = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthsAhead + 1, 0);
+    const cur = new Date(start);
+    while (cur <= end) {
+        days.push(new Date(cur));
+        cur.setDate(cur.getDate() + 1);
     }
     return days;
 }
@@ -39,95 +43,162 @@ export function DateScrollPicker({
     const scrollRef = useRef<ScrollView>(null);
     const locale = useIntlLocale();
 
-    const today = new Date();
-    const selDate = selectedDate
-        ? new Date(selectedDate + 'T00:00:00')
-        : today;
+    const today = useMemo(() => new Date(), []);
+    const selDate = useMemo(() => {
+        return selectedDate
+            ? new Date(selectedDate + 'T00:00:00')
+            : today;
+    }, [selectedDate, today]);
 
-    const year  = selDate.getFullYear();
-    const month = selDate.getMonth();
-    const dates = getMonthDates(year, month);
+    // Continuous date range: from 1 month before current month up to 12 months ahead
+    const dates = useMemo(() => {
+        return getRangeDates(today, 1, 12);
+    }, [today]);
 
     // selected date এর index
     const selectedIndex = dates.findIndex(
         (d) => toISO(d) === selectedDate
     );
 
-    // mount হলে selected date এ scroll করা
+    const monthTitle = useMemo(() => {
+        const str = selDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }, [selDate, locale]);
+
+    const handlePrevMonth = () => {
+        const d = new Date(selDate.getFullYear(), selDate.getMonth() - 1, 1);
+        onSelectDate(toISO(d));
+    };
+
+    const handleNextMonth = () => {
+        const d = new Date(selDate.getFullYear(), selDate.getMonth() + 1, 1);
+        onSelectDate(toISO(d));
+    };
+
+    // mount or selected date changes -> scroll to selected date
     useEffect(() => {
         if (selectedIndex >= 0 && scrollRef.current) {
             setTimeout(() => {
                 scrollRef.current?.scrollTo({
-                    x: selectedIndex * (CHIP_WIDTH + GAP) - wp(20),
+                    x: Math.max(0, selectedIndex * (CHIP_WIDTH + GAP) - wp(20)),
                     animated: true,
                 });
-            }, 150);
+            }, 100);
         }
-    }, [selectedDate]);
+    }, [selectedIndex]);
 
     return (
-        <ScrollView
-            ref={scrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scroll}
-        >
-            {dates.map((date) => {
-                const iso       = toISO(date);
-                const isSelected = iso === selectedDate;
-                const hasTask   = activeDates.includes(iso);
+        <View style={styles.container}>
+            <View style={styles.monthHeader}>
+                <Pressable
+                    style={styles.navBtn}
+                    onPress={handlePrevMonth}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel="Previous month"
+                >
+                    <LeftAngleIcon size={16} color={Colors.PRIMARY_TEXT} />
+                </Pressable>
+                <Body4 color={Colors.PRIMARY_TEXT} style={styles.monthTitle}>
+                    {monthTitle}
+                </Body4>
+                <Pressable
+                    style={styles.navBtn}
+                    onPress={handleNextMonth}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel="Next month"
+                >
+                    <RightAngleIcon size={16} color={Colors.PRIMARY_TEXT} />
+                </Pressable>
+            </View>
 
-                return (
-                    <Pressable
-                        key={iso}
-                        style={[styles.chip, isSelected && styles.chipActive]}
-                        onPress={() => onSelectDate(iso)}
-                    >
-                        {/* Day name */}
-                        <Caption4
-                            color={isSelected ? Colors.TEXT_WHITE : Colors.TEXT_COLOR}
+            <ScrollView
+                ref={scrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.scroll}
+            >
+                {dates.map((date) => {
+                    const iso = toISO(date);
+                    const isSelected = iso === selectedDate;
+                    const hasTask = activeDates.includes(iso);
+
+                    return (
+                        <Pressable
+                            key={iso}
+                            style={[styles.chip, isSelected && styles.chipActive]}
+                            onPress={() => onSelectDate(iso)}
                         >
-                            {date.toLocaleDateString(locale, { weekday: 'short' })}
-                        </Caption4>
+                            {/* Day name */}
+                            <Caption4
+                                color={isSelected ? Colors.TEXT_WHITE : Colors.TEXT_COLOR}
+                            >
+                                {date.toLocaleDateString(locale, { weekday: 'short' })}
+                            </Caption4>
 
-                        {/* Day number */}
-                        <Caption3
-                            color={isSelected ? Colors.TEXT_WHITE : Colors.PRIMARY_TEXT}
-                            style={styles.dayNum}
-                        >
-                            {date.getDate()}
-                        </Caption3>
+                            {/* Day number */}
+                            <Caption3
+                                color={isSelected ? Colors.TEXT_WHITE : Colors.PRIMARY_TEXT}
+                                style={styles.dayNum}
+                            >
+                                {date.getDate()}
+                            </Caption3>
 
-                        {/* Month name */}
-                        <Caption4
-                            color={isSelected ? Colors.TEXT_WHITE : Colors.TEXT_COLOR}
-                        >
-                            {date.toLocaleDateString(locale, { month: 'short' })}
-                        </Caption4>
+                            {/* Month name */}
+                            <Caption4
+                                color={isSelected ? Colors.TEXT_WHITE : Colors.TEXT_COLOR}
+                            >
+                                {date.toLocaleDateString(locale, { month: 'short' })}
+                            </Caption4>
 
-                        {/* Task dot */}
-                        {hasTask && (
-                            <View
-                                style={[
-                                    styles.dot,
-                                    { backgroundColor: isSelected ? Colors.TEXT_WHITE : Colors.BRAND_PRIMARY },
-                                ]}
-                            />
-                        )}
-                    </Pressable>
-                );
-            })}
-        </ScrollView>
+                            {/* Task dot */}
+                            {hasTask && (
+                                <View
+                                    style={[
+                                        styles.dot,
+                                        { backgroundColor: isSelected ? Colors.TEXT_WHITE : Colors.BRAND_PRIMARY },
+                                    ]}
+                                />
+                            )}
+                        </Pressable>
+                    );
+                })}
+            </ScrollView>
+        </View>
     );
 }
 
 const CHIP_WIDTH = wp(58);
-const GAP        = wp(8);
+const GAP = wp(8);
 
 const styles = StyleSheet.create({
+    container: {
+        marginBottom: hp(6),
+    },
+    monthHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: wp(6),
+        paddingBottom: hp(10),
+    },
+    monthTitle: {
+        fontFamily: 'Poppins_600SemiBold',
+    },
+    navBtn: {
+        width: wp(32),
+        height: wp(32),
+        borderRadius: wp(16),
+        backgroundColor: Colors.INPUT_BACKGROUND,
+        borderWidth: 1,
+        borderColor: Colors.BORDER_COLOR,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     scroll: {
         gap: GAP,
-        paddingBottom: hp(16),
+        paddingBottom: hp(14),
         paddingHorizontal: wp(2),
     },
     chip: {

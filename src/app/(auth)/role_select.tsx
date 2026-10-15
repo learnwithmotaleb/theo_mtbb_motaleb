@@ -24,7 +24,7 @@ interface RoleOption {
     id: RoleType;
     title: string;
     description: string;
-    IconComponent: React.FC;
+    icon: React.ReactElement;
 }
 
 const ROLES: RoleOption[] = [
@@ -32,13 +32,13 @@ const ROLES: RoleOption[] = [
         id: 'host',
         title: "I'm a host",
         description: 'Choose your profile to get started',
-        IconComponent: HostAvtIcon,
+        icon: <HostAvtIcon />,
     },
     {
         id: 'cleaner',
         title: "I'm a cleaner",
         description: 'I organize my cleaning service',
-        IconComponent: CleanerAvtIcon,
+        icon: <CleanerAvtIcon />,
     },
 ];
 
@@ -84,7 +84,7 @@ export default function RoleSelectScreen() {
 
                 <StepIndicator
                     totalSteps={4}
-                    currentStep={4}
+                    currentStep={3}
                     activeColor={Colors.BRAND_PRIMARY}
                     inactiveColor={Colors.BRAND_PRIMARY}
                 />
@@ -115,7 +115,7 @@ export default function RoleSelectScreen() {
                                         </View>
                                     </View>
                                     <View style={styles.avatarCircle}>
-                                        <role.IconComponent />
+                                        {role.icon}
                                     </View>
                                     <H3 color={Colors.PRIMARY_TEXT} style={styles.cardTitle}>
                                         {t(role.title)}
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: wp(20),
         paddingTop: hp(30),
     },
-    topRow: { marginBottom: hp(30) },
+    topRow: { marginBottom: hp(16) },
     backBtn: {
         width: wp(36),
         height: wp(36),
@@ -169,36 +169,36 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         overflow: 'hidden',
     },
-    content: { flex: 1, marginTop: hp(20) },
-    title: { marginBottom: hp(6) },
-    description: { marginBottom: hp(24) },
+    content: { flex: 1, marginTop: hp(10) },
+    title: { marginBottom: hp(4) },
+    description: { marginBottom: hp(16) },
     card: {
         alignItems: 'center',
         backgroundColor: Colors.INPUT_BACKGROUND,
         borderRadius: 16,
         borderWidth: 1.5,
         borderColor: Colors.BORDER_COLOR,
-        paddingVertical: hp(24),
+        paddingVertical: hp(14),
         paddingHorizontal: wp(16),
-        marginBottom: hp(16),
+        marginBottom: hp(12),
     },
     cardSelected: { borderColor: Colors.BRAND_PRIMARY },
-    radioWrapper: { position: 'absolute', top: hp(14), right: wp(14) },
+    radioWrapper: { position: 'absolute', top: hp(12), right: wp(12) },
     avatarCircle: {
-        width: wp(72),
-        height: wp(72),
-        borderRadius: wp(36),
+        width: wp(52),
+        height: wp(52),
+        borderRadius: wp(26),
         backgroundColor: '#EAF4FF',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: hp(12),
+        marginBottom: hp(8),
     },
-    cardTitle: { marginBottom: hp(4), fontWeight: '500' },
+    cardTitle: { marginBottom: hp(2), fontWeight: '500' },
     cardDesc: { textAlign: 'center' },
     radio: {
-        width: wp(20),
-        height: wp(20),
-        borderRadius: wp(10),
+        width: wp(18),
+        height: wp(18),
+        borderRadius: wp(9),
         borderWidth: 2,
         borderColor: Colors.BORDER_COLOR,
         backgroundColor: Colors.INPUT_BACKGROUND,

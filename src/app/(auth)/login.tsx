@@ -82,7 +82,7 @@ export default function LoginScreen() {
                 style={styles.scrollContent}
             >
                 <View>
-                    <SectionTitle title={t("Sign In")} />
+                    <SectionTitle title={t("Sign In")} showBackButton={false} />
                 </View>
 
                 <ScrollView
