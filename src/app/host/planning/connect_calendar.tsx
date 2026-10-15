@@ -23,11 +23,19 @@ import {
 import { AppImage } from '@/components/shared/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import {
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
-type Platform = {
+type PlatformItem = {
     id: string;
     name: string;
     label: string;
@@ -36,8 +44,7 @@ type Platform = {
     icon: React.ReactNode;
 };
 
-
-const PLATFORMS: Platform[] = [
+const PLATFORMS: PlatformItem[] = [
     { id: 'airbnb', name: 'Airbnb', label: 'A', bgColor: '#34C7591A', textColor: '#34C759', icon: <AirBnbIcon /> },
     { id: 'booking', name: 'Booking.com', label: 'B', bgColor: '#4B6DF61A', textColor: '#34C759', icon: <BookingIcon /> },
     // { id: 'vrbo', name: 'Vrbo', label: 'V', bgColor: '#1A1A2E20', textColor: '#34C759', icon: <AirBnbIcon /> },
@@ -148,95 +155,101 @@ export default function ConnectCalendarScreen() {
         <SafeAreaView style={styles.safe}>
             <SectionTitle title={t("Connect Calendar")} />
 
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? hp(20) : 0}
+                style={{ flex: 1 }}
             >
-                {/* Property card */}
-                <View style={styles.propertyCard}>
-                    <AppImage source={property.image} style={styles.thumb} contentFit="cover" />
-                    <View style={styles.propertyInfo}>
-                        <Caption2 color={Colors.PRIMARY_TEXT} numberOfLines={1}>
-                            {property.name}
-                        </Caption2>
-                        <View style={styles.row}>
-                            <LocationIcon size={17} color={Colors.TEXT_COLOR} />
-                            <Caption3 color={Colors.TEXT_COLOR}>{property.location}</Caption3>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Title */}
-                <H3
-                    color={Colors.TEXT_COLOR}
-                    style={[styles.title, { fontFamily: 'Poppins_600SemiBold' }]}
+                <ScrollView
+                    contentContainerStyle={[styles.scroll, { paddingBottom: hp(160) }]}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    {t("Connect Your Calendar")}
-                </H3>
-                <Caption3 color={Colors.TEXT_COLOR} style={styles.subtitle}>
-                    {t("Paste the iCal link from your platform to automatically import your bookingtts")}
-                </Caption3>
+                    {/* Property card */}
+                    <View style={styles.propertyCard}>
+                        <AppImage source={property.image} style={styles.thumb} contentFit="cover" />
+                        <View style={styles.propertyInfo}>
+                            <Caption2 color={Colors.PRIMARY_TEXT} numberOfLines={1}>
+                                {property.name}
+                            </Caption2>
+                            <View style={styles.row}>
+                                <LocationIcon size={17} color={Colors.TEXT_COLOR} />
+                                <Caption3 color={Colors.TEXT_COLOR}>{property.location}</Caption3>
+                            </View>
+                        </View>
+                    </View>
 
-                {/* Platform list */}
-                {PLATFORMS.map((platform) => (
-                    <View key={platform.id} style={styles.platformBlock}>
-                        {/* Platform header */}
-                        <View style={styles.platformHeader}>
-                            <View style={[styles.platformIcon, { backgroundColor: platform.bgColor }]}>
-                                <View style={styles.iconCircle}>
-                                    {platform.icon}
+                    {/* Title */}
+                    <H3
+                        color={Colors.TEXT_COLOR}
+                        style={[styles.title, { fontFamily: 'Poppins_600SemiBold' }]}
+                    >
+                        {t("Connect Your Calendar")}
+                    </H3>
+                    <Caption3 color={Colors.TEXT_COLOR} style={styles.subtitle}>
+                        {t("Paste the iCal link from your platform to automatically import your bookingtts")}
+                    </Caption3>
+
+                    {/* Platform list */}
+                    {PLATFORMS.map((platform) => (
+                        <View key={platform.id} style={styles.platformBlock}>
+                            {/* Platform header */}
+                            <View style={styles.platformHeader}>
+                                <View style={[styles.platformIcon, { backgroundColor: platform.bgColor }]}>
+                                    <View style={styles.iconCircle}>
+                                        {platform.icon}
+                                    </View>
                                 </View>
+                                <View style={{ flex: 1 }}>
+                                    <Caption3 color={Colors.PRIMARY_TEXT}>{t(platform.name)}</Caption3>
+                                    <Caption4 color={Colors.TEXT_COLOR}>
+                                        {byPlatform.get(platform.id)?.lastSyncedAt
+                                            ? t("Synced {time}", { time: relativeFromNow(byPlatform.get(platform.id)!.lastSyncedAt) })
+                                            : t("paste Ical(URL)")}
+                                    </Caption4>
+                                </View>
+                                <Pressable
+                                    style={[styles.saveBtn, { backgroundColor: "#34C7591A" }]}
+                                    disabled={isSaving || isSyncing}
+                                    onPress={() => handleSave(platform.id, platform.name)}
+                                >
+                                    <Caption3 color={platform.textColor}>
+                                        {byPlatform.has(platform.id) ? t('Update') : t('Save')}
+                                    </Caption3>
+                                </Pressable>
                             </View>
-                            <View style={{ flex: 1 }}>
-                                <Caption3 color={Colors.PRIMARY_TEXT}>{t(platform.name)}</Caption3>
-                                <Caption4 color={Colors.TEXT_COLOR}>
-                                    {byPlatform.get(platform.id)?.lastSyncedAt
-                                        ? `Synced ${relativeFromNow(byPlatform.get(platform.id)!.lastSyncedAt)}`
-                                        : 'paste Ical(URL)'}
-                                </Caption4>
+
+                            {/* URL input */}
+                            <View style={styles.inputBox}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="https://"
+                                    placeholderTextColor={Colors.PLACEHOLDER_TEXT}
+                                    value={urls[platform.id]}
+                                    onChangeText={(v) =>
+                                        setUrls((prev) => ({ ...prev, [platform.id]: v }))
+                                    }
+                                    autoCapitalize="none"
+                                    keyboardType="url"
+                                />
                             </View>
-                            <Pressable
-                                style={[styles.saveBtn, { backgroundColor: "#34C7591A" }]}
-                                disabled={isSaving || isSyncing}
-                                onPress={() => handleSave(platform.id, platform.name)}
-                            >
-                                <Caption3 color={platform.textColor}>
-                                    {byPlatform.has(platform.id) ? 'Update' : 'Save'}
-                                </Caption3>
-                            </Pressable>
                         </View>
+                    ))}
 
-                        {/* URL input */}
-                        <View style={styles.inputBox}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Example: www.website.com"
-                                placeholderTextColor={Colors.PLACEHOLDER_TEXT}
-                                value={urls[platform.id]}
-                                onChangeText={(v) =>
-                                    setUrls((prev) => ({ ...prev, [platform.id]: v }))
-                                }
-                                autoCapitalize="none"
-                                keyboardType="url"
-                            />
+                    {/* Security note */}
+                    <View style={styles.securityNote}>
+                        <View style={styles.shieldIcon}>
+                            <Caption3 color={Colors.COLOR_ACTIVE}><SecurityIcon/></Caption3>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Caption3 color={Colors.PRIMARY_TEXT}>{t("Your data is secure")}</Caption3>
+                            <Caption4 color={Colors.TEXT_COLOR}>
+                                {t("We only access your calendars, never bookings")}
+                            </Caption4>
                         </View>
                     </View>
-                ))}
-
-                {/* Security note */}
-                <View style={styles.securityNote}>
-                    <View style={styles.shieldIcon}>
-                        <Caption3 color={Colors.COLOR_ACTIVE}><SecurityIcon/></Caption3>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Caption3 color={Colors.PRIMARY_TEXT}>{t("Your data is secure")}</Caption3>
-                        <Caption4 color={Colors.TEXT_COLOR}>
-                            {t("We only access your calendars, never bookings")}
-                        </Caption4>
-                    </View>
-                </View>
-            </ScrollView>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

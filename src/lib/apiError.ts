@@ -18,11 +18,15 @@ export const getApiErrorMessage = (
   };
 
   const first = err.data?.errorMessages?.[0]?.message;
-  if (first) return first;
-  if (err.data?.message) return err.data.message;
-  if (err.status === 'FETCH_ERROR') return 'Network error — check your connection.';
-  if (err.message) return err.message;
-  if (typeof err.error === 'string') return err.error;
+  const rawMsg = first || err.data?.message;
+  if (rawMsg) {
+    if (rawMsg === 'Request already accepted') return 'Cette demande a déjà été acceptée.';
+    if (rawMsg === 'Assignment not found') return 'Affectation introuvable.';
+    return t(rawMsg);
+  }
+  if (err.status === 'FETCH_ERROR') return t('Network error — check your connection.');
+  if (err.message) return t(err.message);
+  if (typeof err.error === 'string') return t(err.error);
   return fallback;
 };
 

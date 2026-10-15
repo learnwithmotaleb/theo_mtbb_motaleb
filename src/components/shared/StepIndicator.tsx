@@ -22,9 +22,9 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({
         <View style={styles.row}>
             {Array.from({ length: totalSteps }).map((_, index) => {
                 const stepNumber = index + 1;
-                const isDone = stepNumber <= currentStep;
-                
-                
+                // Only steps that have already been validated/completed are marked done.
+                // The current step is in progress, so it should not be marked as done yet.
+                const isDone = stepNumber < currentStep;
                 const isLineActive = stepNumber < currentStep;
 
                 return (

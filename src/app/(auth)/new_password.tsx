@@ -79,7 +79,7 @@ export default function NewPasswordScreen() {
                             value={values[FORM_FIELDS.NEW_PASSWORD]}
                             onChangeText={(text) => handleChange(FORM_FIELDS.NEW_PASSWORD, text)}
                             type="password"
-                            placeholder="********"
+                            placeholder=""
                             error={errors[FORM_FIELDS.NEW_PASSWORD]}
                             touched={touched[FORM_FIELDS.NEW_PASSWORD]}
                         />
@@ -94,7 +94,7 @@ export default function NewPasswordScreen() {
                             value={values[FORM_FIELDS.CONFIRM_NEW_PASSWORD]}
                             onChangeText={(text) => handleChange(FORM_FIELDS.CONFIRM_NEW_PASSWORD, text)}
                             type="password"
-                            placeholder="********"
+                            placeholder=""
                             error={errors[FORM_FIELDS.CONFIRM_NEW_PASSWORD]}
                             touched={touched[FORM_FIELDS.CONFIRM_NEW_PASSWORD]}
                         />

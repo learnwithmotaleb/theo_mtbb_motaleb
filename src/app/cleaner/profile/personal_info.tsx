@@ -55,7 +55,7 @@ export default function PersonalInformationScreen() {
             {
                 key: 'siretNumber',
                 label: t("SIRET Number"),
-                value: (me?.siretNumber as string) ?? '',
+                value: me?.siretNumber ?? '',
             },
             // The email identifies the account and cannot be changed here.
             { key: 'email', label: t("Email"), value: me?.email ?? '', readOnly: true },
@@ -102,7 +102,7 @@ export default function PersonalInformationScreen() {
                 {/* Avatar + name + description */}
                 <View style={infoStyles.profileHeader}>
                     <View style={infoStyles.avatarWrapper}>
-                        <View style={[infoStyles.avatar, { backgroundColor: Colors.BORDER_COLOR }]} >
+                        <View style={[infoStyles.avatar, { backgroundColor: Colors.BORDER_COLOR, overflow: 'hidden' }]} >
                             <AppImage
                                 source={imageSource(me?.profileImage, null)}
                                 style={{ height: 80, width: 80 }}

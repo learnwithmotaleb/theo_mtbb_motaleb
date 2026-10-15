@@ -105,6 +105,9 @@ export default function TeamDetailScreen() {
         if (!assignmentId || isResponding) return;
         try {
             await respond({ assignmentId, action }).unwrap();
+            if (action === 'accept' && host?._id) {
+                await startConversation({ receiverId: host._id }).unwrap().catch(() => {});
+            }
             showToast(
                 action === 'accept' ? t('Request accepted') : t('Request refused'),
                 'success',

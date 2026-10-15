@@ -45,7 +45,7 @@ export default function CongratulationsScreen() {
     const handleContinue = () => {
         // The accommodation exists now, so the wizard state can go.
         dispatch(resetDraft());
-        router.push('/host/onboarding/next_step');
+        router.replace('/host/onboarding/next_step' as any);
     };
 
     return (

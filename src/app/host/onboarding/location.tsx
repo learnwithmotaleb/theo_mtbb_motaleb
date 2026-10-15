@@ -5,6 +5,8 @@ import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -77,110 +79,116 @@ export default function LocationScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
-           <SectionTitle/>
+            <SectionTitle />
 
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
             >
-                <H2 align="center" color={Colors.TEXT_COLOR} style={styles.title}>
-                    {t("Where is your property located?")}
-                </H2>
-                <Body6 align="center" color={Colors.TEXT_COLOR} style={styles.subtitle}>
-                    {t("Enter the full address so that the housekeepers can find you.")}
-                </Body6>
+                <ScrollView
+                    contentContainerStyle={styles.scroll}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <H2 align="center" color={Colors.TEXT_COLOR} style={styles.title}>
+                        {t("Where is your property located?")}
+                    </H2>
+                    <Body6 align="center" color={Colors.TEXT_COLOR} style={styles.subtitle}>
+                        {t("Enter the full address so that the housekeepers can find you.")}
+                    </Body6>
 
-                <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                    {t("Add Address")}
-                </Body5>
-                <View style={[styles.searchBox, addressError ? styles.inputError : null]}>
-                    <SearchIcon size={20} color={Colors.TEXT_COLOR} />
-                    <TextInput
-                        style={styles.searchInput}
-                        value={address}
-                        onChangeText={(t) => {
-                            setAddress(t);
-                            if (t.trim()) setAddressError('');
-                        }}
-                        placeholder={t("add address here")}
-                        placeholderTextColor={Colors.PLACEHOLDER_TEXT}
-                    />
-                </View>
-                {addressError ? (
-                    <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                        {t(addressError)}
-                    </Caption1>
-                ) : null}
-
-                <View style={styles.addressPreview}>
-                    <View style={styles.addressPreviewIcon}>
-                        <SearchIcon size={18} color={Colors.COLOR_ACTIVE} />
+                    <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
+                        {t("Add Address")}
+                    </Body5>
+                    <View style={[styles.searchBox, addressError ? styles.inputError : null]}>
+                        <SearchIcon size={20} color={Colors.TEXT_COLOR} />
+                        <TextInput
+                            style={styles.searchInput}
+                            value={address}
+                            onChangeText={(t) => {
+                                setAddress(t);
+                                if (t.trim()) setAddressError('');
+                            }}
+                            placeholder={t("add address here")}
+                            placeholderTextColor={Colors.PLACEHOLDER_TEXT}
+                        />
                     </View>
-                    <View style={{ flex: 1 }}>
-                        <Body5 color={Colors.PRIMARY_TEXT}>{t("Cleaning address")}</Body5>
-                        <Caption1 color={Colors.TEXT_COLOR}>
-                            {[address, zipCode, city].filter(Boolean).join(', ') ||
-                                t("Your housekeeper will be given this address.")}
+                    {addressError ? (
+                        <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
+                            {t(addressError)}
                         </Caption1>
-                    </View>
-                </View>
+                    ) : null}
 
-                {/* Any French city, with live suggestions */}
-                <CityField
-                    label={t("City")}
-                    value={city}
-                    onChange={(name, commune) => {
-                        const codes = commune?.postalCodes ?? [];
-                        setCity(name);
-                        setCityCodes(codes);
-                        if (codes.length === 1) setZipCode(codes[0]);
-                    }}
-                />
-
-                <View style={styles.cityRow}>
-                    <View style={{ flex: 1 }}>
-                        <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                            {t("Zip code")}
-                        </Body5>
-                        <View style={styles.inputBox}>
-                            <TextInput
-                                style={styles.input}
-                                value={zipCode}
-                                onChangeText={(v) => setZipCode(v.replace(/D/g, '').slice(0, 5))}
-                                placeholder={t("5 digits")}
-                                placeholderTextColor={Colors.PLACEHOLDER_TEXT}
-                                keyboardType="number-pad"
-                            />
+                    <View style={styles.addressPreview}>
+                        <View style={styles.addressPreviewIcon}>
+                            <SearchIcon size={18} color={Colors.COLOR_ACTIVE} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Body5 color={Colors.PRIMARY_TEXT}>{t("Cleaning address")}</Body5>
+                            <Caption1 color={Colors.TEXT_COLOR}>
+                                {[address, zipCode, city].filter(Boolean).join(', ') ||
+                                    t("Your housekeeper will be given this address.")}
+                            </Caption1>
                         </View>
                     </View>
-                </View>
 
-                <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                    {t("Address line 2 (optional)")}
-                </Body5>
-                <View style={styles.inputBox}>
-                    <TextInput
-                        style={styles.input}
-                        value={address2}
-                        onChangeText={setAddress2}
-                        placeholder={t("Floor, building, door code...")}
-                        placeholderTextColor={Colors.PLACEHOLDER_TEXT}
+                    {/* Any French city, with live suggestions */}
+                    <CityField
+                        label={t("City")}
+                        value={city}
+                        onChange={(name, commune) => {
+                            const codes = commune?.postalCodes ?? [];
+                            setCity(name);
+                            setCityCodes(codes);
+                            if (codes.length === 1) setZipCode(codes[0]);
+                        }}
+                    />
+
+                    <View style={styles.cityRow}>
+                        <View style={{ flex: 1 }}>
+                            <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
+                                {t("Zip code")}
+                            </Body5>
+                            <View style={styles.inputBox}>
+                                <TextInput
+                                    style={styles.input}
+                                    value={zipCode}
+                                    onChangeText={(v) => setZipCode(v.replace(/D/g, '').slice(0, 5))}
+                                    placeholder={t("5 digits")}
+                                    placeholderTextColor={Colors.PLACEHOLDER_TEXT}
+                                    keyboardType="number-pad"
+                                />
+                            </View>
+                        </View>
+                    </View>
+
+                    <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
+                        {t("Address line 2 (optional)")}
+                    </Body5>
+                    <View style={styles.inputBox}>
+                        <TextInput
+                            style={styles.input}
+                            value={address2}
+                            onChangeText={setAddress2}
+                            placeholder={t("Floor, building, door code...")}
+                            placeholderTextColor={Colors.PLACEHOLDER_TEXT}
+                        />
+                    </View>
+                </ScrollView>
+
+                <View style={styles.footer}>
+                    <CustomButton
+                        // onPress={handleContinue}
+                        onPress={handleContinue}
+                        title={checking ? t("Checking...") : t("Continue")}
+                        backgroundColor={Colors.BG_BLACK}
+                        width="100%"
+                        height={hp(54)}
+                        borderRadius={wp(14)}
                     />
                 </View>
-            </ScrollView>
-
-            <View style={styles.footer}>
-                <CustomButton
-                    // onPress={handleContinue}
-                    onPress={handleContinue}
-                    title={checking ? t("Checking...") : t("Continue")}
-                    backgroundColor={Colors.BG_BLACK}
-                    width="100%"
-                    height={hp(54)}
-                    borderRadius={wp(14)}
-                />
-            </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

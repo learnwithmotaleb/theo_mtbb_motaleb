@@ -1,24 +1,34 @@
 import { SkeletonList } from '@/components/shared/Skeleton';
 import { useT } from '@/i18n';
 import { LocationIcon } from '@/assets/icons/cleaner_icon/LocationIcon';
+import { ClockIcon } from '@/assets/icons/host_icon/ClockIcon';
 import { CustomButton } from '@/components/shared/CustomButton';
 import { Body4, Caption2, Caption3, Caption4, Caption5, H3 } from '@/components/typo/Typography';
 import { showToast } from '@/components/shared/Toast';
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { toCleanerRequest } from '@/lib/mappers';
+import { accommodationLocation, accommodationPhoto, personName, toCleanerRequest } from '@/lib/mappers';
+import { cleaningHours, extractCleaningDuration, formatCleaningWindow, formatDayKey } from '@/lib/datetime';
+import { useFormat } from '@/lib/useFormat';
 import {
     useGetMyRequestsQuery,
     useRespondToAssignmentMutation,
 } from '@/redux/services/assignmentApi';
+import {
+    useGetCleanerSchedulesQuery,
+    useRespondToScheduleMutation,
+} from '@/redux/services/scheduleApi';
+import { useStartConversationMutation } from '@/redux/services/chatApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { hp, wp } from '../../../../utils/responsiveDevice';
 
-/** A pending assignment, as the cleaning-request card renders it. */
-type CleaningRequest = ReturnType<typeof toCleanerRequest>;
+/** A pending assignment, as the add-request card renders it. */
+type AddRequestItem = ReturnType<typeof toCleanerRequest>;
 
 /** One host, aggregated from the pending requests they sent. */
 type ConnectionRequest = {
@@ -27,17 +37,93 @@ type ConnectionRequest = {
     image: any;
     propertiesCount: number;
 };
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { hp, wp } from '../../../../utils/responsiveDevice';
 
-// ── Cleaning Request Card ─────────────────────────────────────────────────────
-function CleaningRequestCard({
+// ── 1. Cleaning Request Card (Scheduled Missions) ────────────────────────────
+function ScheduledCleaningRequestCard({
     item,
     onAccept,
     onRefuse,
     onPress,
 }: {
-    item: CleaningRequest;
+    item: {
+        id: string;
+        apartmentName: string;
+        address: string;
+        image: any;
+        date: string;
+        time: string;
+        estimation: string;
+        price: string;
+    };
+    onAccept: () => void;
+    onRefuse: () => void;
+    onPress: () => void;
+}) {
+    const t = useT();
+    return (
+        <Pressable style={styles.cleaningCard} onPress={onPress}>
+            <View style={styles.cardTop}>
+                <AppImage source={item.image} style={styles.cardThumb} contentFit="cover" />
+                <View style={styles.cardInfo}>
+                    <Caption2 color={Colors.TEXT_COLOR} numberOfLines={2}>
+                        {item.apartmentName}
+                    </Caption2>
+                    <View style={styles.row}>
+                        <LocationIcon size={13} color={Colors.TEXT_COLOR} />
+                        <Caption4 color={Colors.TEXT_COLOR} numberOfLines={1} style={{ flex: 1 }}>
+                            {item.address}
+                        </Caption4>
+                    </View>
+                    <View style={styles.row}>
+                        <ClockIcon size={13} color={Colors.TEXT_COLOR} />
+                        <Caption4 color={Colors.TEXT_COLOR}>
+                            {item.date} • {item.time}
+                        </Caption4>
+                    </View>
+                    <View style={styles.scheduleBadgeRow}>
+                        <View style={styles.estimationBadge}>
+                            <Caption4 color={Colors.TEXT_COLOR}>
+                                {t("Estimation: {value}", { value: item.estimation })}
+                            </Caption4>
+                        </View>
+                        <Caption3 color={Colors.PRIMARY_TEXT}>{item.price}</Caption3>
+                    </View>
+                </View>
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.actionRow}>
+                <CustomButton
+                    title={t("Refuse")}
+                    color="#FF383C"
+                    onPress={onRefuse}
+                    borderRadius={wp(5)}
+                    borderColor="#FF383C1A"
+                    backgroundColor={Colors.APP_BACKGROUND}
+                    width="49%"
+                />
+                <CustomButton
+                    title={t("Accept")}
+                    color="#FFFFFF"
+                    onPress={onAccept}
+                    borderRadius={wp(5)}
+                    borderColor="#FF383C1A"
+                    backgroundColor={"#000000"}
+                    width="49%"
+                />
+            </View>
+        </Pressable>
+    );
+}
+
+// ── 2. Add Request Card (Requests to be added to a new property) ──────────────
+function AddRequestCard({
+    item,
+    onAccept,
+    onRefuse,
+    onPress,
+}: {
+    item: AddRequestItem;
     onAccept: () => void;
     onRefuse: () => void;
     onPress: () => void;
@@ -59,33 +145,29 @@ function CleaningRequestCard({
                         <Caption4 color={Colors.TEXT_COLOR}>{t("Price per cleaning")}</Caption4>
                         <Caption3 color={Colors.PRIMARY_TEXT}>{item.pricePerCleaning}</Caption3>
                     </View>
-                    <Caption5 color={Colors.TEXT_COLOR}>{item.description}</Caption5>
+                    {item.description ? (
+                        <Caption5 color={Colors.TEXT_COLOR}>{item.description}</Caption5>
+                    ) : null}
                 </View>
             </View>
 
             {/* Buttons */}
             <View style={styles.actionRow}>
-                {/* <Pressable style={styles.refuseBtn} onPress={onRefuse}>
-                    <Caption3 color={Colors.COLOR_DANGER}>{t("Refuse")}</Caption3>
-                </Pressable>
-                <Pressable style={styles.acceptBtn} onPress={onAccept}>
-                    <Caption3 color="#fff">{t("Accept")}</Caption3>
-                </Pressable> */}
                 <CustomButton
                     title={t("Refuse")}
-                    color='#FF383C'
+                    color="#FF383C"
                     onPress={onRefuse}
                     borderRadius={wp(5)}
-                    borderColor='#FF383C1A'
+                    borderColor="#FF383C1A"
                     backgroundColor={Colors.APP_BACKGROUND}
                     width="49%"
                 />
                 <CustomButton
                     title={t("Accept")}
-                    color='#FFFFFF'
+                    color="#FFFFFF"
                     onPress={onAccept}
                     borderRadius={wp(5)}
-                    borderColor='#FF383C1A'
+                    borderColor="#FF383C1A"
                     backgroundColor={"#000000"}
                     width="49%"
                 />
@@ -121,26 +203,63 @@ function ConnectionRequestRow({
 export default function RequestsScreen() {
     const t = useT();
     const router = useRouter();
+    const { formatMoney, formatDate } = useFormat();
 
-    // Only requests still awaiting an answer from this cleaner belong here.
-    const { data, isLoading, refetch } = useGetMyRequestsQuery({
-        status: 'pending',
-        page: 1,
-        limit: 50,
-    });
-    const { refreshing, onRefresh } = useRefresh([refetch]);
-    const [respond, { isLoading: isResponding }] = useRespondToAssignmentMutation();
+    // 1. Cleaning Requests: Scheduled cleaning missions waiting for cleaner's answer
+    const {
+        data: scheduleData,
+        isLoading: isScheduleLoading,
+        refetch: refetchSchedule,
+    } = useGetCleanerSchedulesQuery({ status: 'scheduled', page: 1, limit: 50 });
 
-    const requests = useMemo(
-        () => (data?.data ?? []).map(toCleanerRequest),
-        [data],
+    // 2. Add Requests: Requests from hosts to add this cleaner to a new property
+    const {
+        data: assignmentData,
+        isLoading: isAssignmentLoading,
+        refetch: refetchAssignment,
+    } = useGetMyRequestsQuery({ status: 'pending', page: 1, limit: 50 });
+
+    const { refreshing, onRefresh } = useRefresh([refetchSchedule, refetchAssignment]);
+
+    const [respondAssignment, { isLoading: isRespondingAssignment }] = useRespondToAssignmentMutation();
+    const [respondSchedule, { isLoading: isRespondingSchedule }] = useRespondToScheduleMutation();
+    const [startConversation] = useStartConversationMutation();
+
+    // Cleaning missions waiting for response
+    const cleaningRequests = useMemo(() => {
+        return (scheduleData?.data ?? []).map((mission) => {
+            const accommodation = (mission.accommodation ?? {}) as any;
+            return {
+                id: mission._id,
+                accommodationId: accommodation?._id ?? '',
+                apartmentName: accommodation?.name ?? t('Accommodation'),
+                address: accommodationLocation(accommodation),
+                image: accommodationPhoto(accommodation),
+                date: formatDayKey(mission.dayKey) || formatDate(mission.date, { weekday: 'short', day: 'numeric', month: 'short' }),
+                time: formatCleaningWindow(mission.checkInTime, mission.checkOutTime),
+                estimation: (() => {
+                    const hostDuration = extractCleaningDuration(accommodation, mission);
+                    if (hostDuration) return hostDuration;
+                    const hours =
+                        Math.abs(mission.estimationHours ?? 0) ||
+                        cleaningHours(mission.checkInTime, mission.checkOutTime);
+                    return hours ? `${hours}h` : '—';
+                })(),
+                price: formatMoney(mission.payAmount ?? accommodation?.cleaningRate ?? 0, mission.payCurrency),
+            };
+        });
+    }, [scheduleData, formatMoney, formatDate, t]);
+
+    // Requests to be added to a new property
+    const addRequests = useMemo(
+        () => (assignmentData?.data ?? []).map(toCleanerRequest),
+        [assignmentData],
     );
 
-    // The same host may have requested several properties; the connection list
-    // shows each host once, with how many they are asking about.
+    // Host connections aggregated from pending add requests
     const connections = useMemo<ConnectionRequest[]>(() => {
         const byHost = new Map<string, ConnectionRequest>();
-        requests.forEach((request) => {
+        addRequests.forEach((request) => {
             if (!request.hostId) return;
             const existing = byHost.get(request.hostId);
             if (existing) {
@@ -151,21 +270,41 @@ export default function RequestsScreen() {
                 id: request.hostId,
                 name: request.hostName,
                 image: request.hostImage,
-                // Falls back to the number of requests when the backend did not
-                // annotate the host with a total property count.
                 propertiesCount: request.hostProperties || 1,
             });
         });
         return Array.from(byHost.values());
-    }, [requests]);
+    }, [addRequests]);
 
-    const handleRespond = async (
-        assignmentId: string,
+    // Handler for accepting/refusing scheduled cleanings
+    const handleRespondSchedule = async (
+        id: string,
         action: 'accept' | 'refuse',
     ) => {
-        if (isResponding) return;
+        if (isRespondingSchedule) return;
         try {
-            await respond({ assignmentId, action }).unwrap();
+            await respondSchedule({ id, action }).unwrap();
+            showToast(
+                action === 'accept' ? t('Mission accepted') : t('Mission refused'),
+                'success',
+            );
+        } catch (err) {
+            showToast(getApiErrorMessage(err, t("Could not send your answer.")), 'error');
+        }
+    };
+
+    // Handler for accepting/refusing requests to be added to a property
+    const handleRespondAssignment = async (
+        item: AddRequestItem,
+        action: 'accept' | 'refuse',
+    ) => {
+        if (isRespondingAssignment) return;
+        try {
+            await respondAssignment({ assignmentId: item.id, action }).unwrap();
+            if (action === 'accept' && item.hostId) {
+                // As soon as cleaner adds host, host profile automatically appears in Messages section
+                await startConversation({ receiverId: item.hostId }).unwrap().catch(() => {});
+            }
             showToast(
                 action === 'accept' ? t('Request accepted') : t('Request refused'),
                 'success',
@@ -178,7 +317,7 @@ export default function RequestsScreen() {
     return (
         <SafeAreaView style={styles.safe}>
             {/* Header */}
-            <View style={{ marginTop: hp(20),paddingHorizontal:wp(20) }}>
+            <View style={{ marginTop: hp(20), paddingHorizontal: wp(20) }}>
                 <H3 color={Colors.PRIMARY_TEXT} style={styles.pageTitle}>
                     {t("Requests")}
                 </H3>
@@ -193,62 +332,81 @@ export default function RequestsScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
             >
-
-
-                {/* Cleaning Requests */}
+                {/* 1. Cleaning Requests (Demandes de ménage) */}
                 <Body4 color={Colors.TEXT_COLOR} style={styles.sectionTitle}>
                     {t("Cleaning Requests")}
                 </Body4>
-                {isLoading ? (
+                {isScheduleLoading ? (
                     <SkeletonList count={2} />
-                ) : requests.length === 0 ? (
+                ) : cleaningRequests.length === 0 ? (
                     <Caption3 color={Colors.TEXT_COLOR} style={{ marginBottom: hp(16) }}>
                         {t("No cleaning requests right now.")}
                     </Caption3>
                 ) : (
-                    requests.map((item) => (
-                        <CleaningRequestCard
+                    cleaningRequests.map((item) => (
+                        <ScheduledCleaningRequestCard
                             key={item.id}
                             item={item}
                             onPress={() =>
                                 router.push({
-                                    pathname: '/cleaner/requests/team_detail',
-                                    params: {
-                                        requestId: item.id,
-                                        accommodationId: item.accommodationId,
-                                    },
+                                    pathname: '/cleaner/task/details',
+                                    params: { taskId: item.id },
                                 } as any)
                             }
-                            onAccept={() => handleRespond(item.id, 'accept')}
-                            onRefuse={() => handleRespond(item.id, 'refuse')}
+                            onAccept={() => handleRespondSchedule(item.id, 'accept')}
+                            onRefuse={() => handleRespondSchedule(item.id, 'refuse')}
                         />
                     ))
                 )}
 
-                {/* Connection Requests */}
+                {/* 2. Add Requests (Demandes de mise en relation / Add Requests) */}
                 <Body4 color={Colors.TEXT_COLOR} style={styles.sectionTitle}>
-                    {t("Connection Requests")}
+                    {t("Add Requests")}
                 </Body4>
-                <View style={styles.connectionList}>
-                    {connections.length === 0 ? (
-                        <Caption3 color={Colors.TEXT_COLOR}>
-                            {t("No connection requests right now.")}
-                        </Caption3>
-                    ) : (
-                        connections.map((item) => (
-                            <ConnectionRequestRow
+                {isAssignmentLoading ? (
+                    <SkeletonList count={2} />
+                ) : addRequests.length === 0 && connections.length === 0 ? (
+                    <Caption3 color={Colors.TEXT_COLOR}>
+                        {t("No add requests right now.")}
+                    </Caption3>
+                ) : (
+                    <>
+                        {addRequests.map((item) => (
+                            <AddRequestCard
                                 key={item.id}
                                 item={item}
-                                onView={() =>
+                                onPress={() =>
                                     router.push({
-                                        pathname: '/cleaner/requests/host_profile',
-                                        params: { hostId: item.id },
+                                        pathname: '/cleaner/requests/team_detail',
+                                        params: {
+                                            requestId: item.id,
+                                            accommodationId: item.accommodationId,
+                                        },
                                     } as any)
                                 }
+                                onAccept={() => handleRespondAssignment(item, 'accept')}
+                                onRefuse={() => handleRespondAssignment(item, 'refuse')}
                             />
-                        ))
-                    )}
-                </View>
+                        ))}
+
+                        {connections.length > 0 && (
+                            <View style={styles.connectionList}>
+                                {connections.map((item) => (
+                                    <ConnectionRequestRow
+                                        key={item.id}
+                                        item={item}
+                                        onView={() =>
+                                            router.push({
+                                                pathname: '/cleaner/requests/host_profile',
+                                                params: { hostId: item.id },
+                                            } as any)
+                                        }
+                                    />
+                                ))}
+                            </View>
+                        )}
+                    </>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
@@ -287,32 +445,29 @@ const styles = StyleSheet.create({
         paddingVertical: hp(3),
         gap: hp(2),
     },
+    scheduleBadgeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: hp(2),
+    },
+    estimationBadge: {
+        backgroundColor: Colors.APP_BACKGROUND,
+        borderRadius: wp(6),
+        paddingHorizontal: wp(8),
+        paddingVertical: hp(3),
+    },
     actionRow: {
         flexDirection: 'row',
-        // borderTopWidth: 1,
-        // borderTopColor: Colors.BORDER_COLOR,
         paddingHorizontal: wp(8),
         paddingVertical: hp(10),
-        gap: wp(5)
-    },
-    refuseBtn: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: hp(14),
-        borderRightWidth: 1,
-        borderRightColor: Colors.BORDER_COLOR,
-    },
-    acceptBtn: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: hp(14),
-        backgroundColor: Colors.PRIMARY_TEXT,
+        gap: wp(5),
     },
 
     // Connection list
     connectionList: {
-        // backgroundColor: Colors.INPUT_BACKGROUND,
         borderRadius: wp(12),
+        marginTop: hp(4),
     },
     connectionRow: {
         backgroundColor: Colors.INPUT_BACKGROUND,
@@ -332,7 +487,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: wp(16),
         paddingVertical: hp(8),
         borderRadius: wp(8),
-        backgroundColor: "#74748014",
+        backgroundColor: '#74748014',
     },
-    // divider: { height: 1, backgroundColor: Colors.BORDER_COLOR, marginHorizontal: wp(14) },
 });

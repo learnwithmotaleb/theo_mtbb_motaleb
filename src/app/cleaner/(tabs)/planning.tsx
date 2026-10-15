@@ -7,12 +7,15 @@ import { Body4, Body5, Caption2, Caption3, Caption4, H6 } from '@/components/typ
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 import { accommodationLocation, accommodationPhoto } from '@/lib/mappers';
-import { cleaningHours, formatCleaningWindow, formatDayKey } from '@/lib/datetime';
+import { cleaningHours, extractCleaningDuration, formatCleaningWindow, formatDayKey } from '@/lib/datetime';
 import { useGetCleanerPlanningQuery } from '@/redux/services/scheduleApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { hp, wp } from '../../../../utils/responsiveDevice';
 
 /** One mission row inside a day group. */
 type PlanningTask = {
@@ -23,8 +26,6 @@ type PlanningTask = {
     time: string;
     image: any;
 };
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { hp, wp } from '../../../../utils/responsiveDevice';
 
 function toISO(date: Date): string {
     const y = date.getFullYear();
@@ -102,6 +103,8 @@ export default function PlanningScreen() {
                 apartmentName: accommodation?.name ?? 'Accommodation',
                 address: accommodationLocation(accommodation),
                 estimation: (() => {
+                    const hostDuration = extractCleaningDuration(accommodation, mission);
+                    if (hostDuration) return hostDuration;
                     const hours =
                         Math.abs(mission.estimationHours ?? 0) ||
                         cleaningHours(mission.checkInTime, mission.checkOutTime);

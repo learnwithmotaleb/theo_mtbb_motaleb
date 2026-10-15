@@ -7,7 +7,9 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     FlatList,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -110,68 +112,74 @@ export default function CleaningDurationScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
-            <SectionTitle/>
+            <SectionTitle />
 
-            <ScrollView
-                contentContainerStyle={styles.scroll}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
             >
-                <H2 align="center" color={Colors.TEXT_COLOR} style={styles.title}>
-                    {t("How long does a cleaning take on average?")}
-                </H2>
-                <Body6 align="center" color={Colors.TEXT_COLOR} style={styles.subtitle}>
-                    {t("This helps us optimize the organization and the rate.")}
-                </Body6>
+                <ScrollView
+                    contentContainerStyle={styles.scroll}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <H2 align="center" color={Colors.TEXT_COLOR} style={styles.title}>
+                        {t("How long does a cleaning take on average?")}
+                    </H2>
+                    <Body6 align="center" color={Colors.TEXT_COLOR} style={styles.subtitle}>
+                        {t("This helps us optimize the organization and the rate.")}
+                    </Body6>
 
-                <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                    {t("Average cleaning duration")}
-                </Body5>
-                <DurationDropdown value={duration} onChange={setDuration} />
+                    <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
+                        {t("Average cleaning duration")}
+                    </Body5>
+                    <DurationDropdown value={duration} onChange={setDuration} />
 
-                <Body5 color={Colors.TEXT_COLOR} style={styles.rateQuestion}>
-                    {t("What rate would you like to offer?")}
-                </Body5>
-                <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
-                    {t("Proposed rate")}
-                </Body5>
-                <View style={[styles.inputBox, rateError ? styles.inputError : null]}>
-                    <TextInput
-                        style={styles.input}
-                        value={rate}
-                        onChangeText={(t) => {
-                            setRate(t);
-                            if (t.trim()) setRateError('');
-                        }}
-                        placeholder={t("80 € / cleaning")}
-                        placeholderTextColor={Colors.PLACEHOLDER_TEXT}
-                        keyboardType="numeric"
+                    <Body5 color={Colors.TEXT_COLOR} style={styles.rateQuestion}>
+                        {t("What rate would you like to offer?")}
+                    </Body5>
+                    <Body5 color={Colors.TEXT_COLOR} style={styles.label}>
+                        {t("Proposed rate")}
+                    </Body5>
+                    <View style={[styles.inputBox, rateError ? styles.inputError : null]}>
+                        <TextInput
+                            style={styles.input}
+                            value={rate}
+                            onChangeText={(t) => {
+                                setRate(t);
+                                if (t.trim()) setRateError('');
+                            }}
+                            placeholder={t("80 € / cleaning")}
+                            placeholderTextColor={Colors.PLACEHOLDER_TEXT}
+                            keyboardType="numeric"
+                        />
+                    </View>
+                    {rateError ? (
+                        <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
+                            {t(rateError)}
+                        </Caption1>
+                    ) : null}
+
+                    <Caption3 color={Colors.TEXT_COLOR} align="center" style={styles.hint}>
+                        {t("You can modify this rate at any time.")}
+                    </Caption3>
+                </ScrollView>
+
+                <View style={styles.footer}>
+                    <CustomButton
+                        // onPress={handleContinue}
+                        onPress={handleContinue}
+                        title={t("Continue")}
+                        backgroundColor={Colors.BG_BLACK}
+                        width="100%"
+                        height={hp(54)}
+                        borderRadius={wp(14)}
+                        isLoading={isLoading}
+                        disabled={isLoading}
                     />
                 </View>
-                {rateError ? (
-                    <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                        {rateError}
-                    </Caption1>
-                ) : null}
-
-                <Caption3 color={Colors.TEXT_COLOR} align="center" style={styles.hint}>
-                    {t("You can modify this rate at any time.")}
-                </Caption3>
-            </ScrollView>
-
-            <View style={styles.footer}>
-                <CustomButton
-                    // onPress={handleContinue}
-                    onPress={handleContinue}
-                    title={t("Continue")}
-                    backgroundColor={Colors.BG_BLACK}
-                    width="100%"
-                    height={hp(54)}
-                    borderRadius={wp(14)}
-                    isLoading={isLoading}
-                    disabled={isLoading}
-                />
-            </View>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }

@@ -41,7 +41,7 @@ export default function AndNextScreen() {
 
     // replace, so the back gesture cannot walk back into the wizard.
     const handleContinue = () => {
-        router.replace('/host/(tabs)');
+        router.replace('/host/(tabs)/housing' as any);
     };
 
     return (

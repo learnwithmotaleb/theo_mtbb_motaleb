@@ -198,6 +198,7 @@ const styles = StyleSheet.create({
         width: wp(64),
         height: wp(64),
         borderRadius: wp(32),
+        overflow: 'hidden',
     },
     cameraBadge: {
         position: 'absolute',

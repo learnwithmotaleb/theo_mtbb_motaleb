@@ -55,7 +55,7 @@ export default function HostMenuScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
-            <SectionTitle title={t("Profile")} />
+            <SectionTitle title={t("Profile")} showBackButton={false} />
             <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
                 {/* Avatar */}
@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
         width: wp(72),
         height: wp(72),
         borderRadius: wp(36),
+        overflow: 'hidden',
     },
     name: { fontFamily: 'Poppins_600SemiBold' },
     section: { marginBottom: hp(16) },
