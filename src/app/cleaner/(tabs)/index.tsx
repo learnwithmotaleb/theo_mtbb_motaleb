@@ -10,7 +10,7 @@ import { useRefresh } from '@/hooks/useRefresh';
 
 import { personName, toCleanerTask } from '@/lib/mappers';
 import { useCurrentUser } from '@/redux/hooks';
-import { useGetCleanerHomeQuery } from '@/redux/services/scheduleApi';
+import { useGetCleanerHomeQuery, usePendingScheduleCount } from '@/redux/services/scheduleApi';
 import { usePendingRequestCount } from '@/redux/services/assignmentApi';
 import { RequestIcon } from '@/assets/icons/cleaner_icon/RequestIcon';
 import { RightAngleIcon } from '@/assets/icons/common_icon/RightAngleIcon';
@@ -57,7 +57,9 @@ export default function CleanerHomeScreen() {
         refetchOnFocus: true,
     });
     const { refreshing, onRefresh } = useRefresh([refetch]);
-    const pendingRequests = usePendingRequestCount();
+    const pendingAssignments = usePendingRequestCount();
+    const pendingSchedules = usePendingScheduleCount();
+    const pendingRequests = pendingAssignments + pendingSchedules;
 
     // The backend resolves "today" in this device's timezone (x-timezone), so
     // the header date and the buckets always agree.

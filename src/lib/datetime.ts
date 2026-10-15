@@ -102,6 +102,57 @@ export const cleaningHours = (a?: string | null, b?: string | null): number | nu
 };
 
 /**
+ * Extracts the host's configured cleaning duration from the accommodation or mission.
+ * In property onboarding, the host chooses an average duration (e.g. '1h00', '1h30', '2h00', '2h30')
+ * which is saved in `instructions` as "Average cleaning duration: 2h00" (or in notes/cleaningDuration).
+ * Normalizes e.g. "2h00" to "2h", while keeping "2h30" as "2h30".
+ */
+export const extractCleaningDuration = (
+  accommodation?: any,
+  mission?: any,
+): string | null => {
+  // 1. Direct duration properties if available
+  const direct =
+    accommodation?.cleaningDuration ??
+    accommodation?.averageDuration ??
+    accommodation?.duration ??
+    mission?.cleaningDuration ??
+    mission?.duration;
+
+  if (direct) {
+    const s = String(direct).trim();
+    if (/^\d+h00$/i.test(s)) return s.replace(/h00$/i, 'h');
+    return s;
+  }
+
+  // 2. Check instructions or notes (set during onboarding / property creation)
+  const textCandidates = [
+    accommodation?.instructions,
+    accommodation?.notes,
+    mission?.notes,
+  ].filter(Boolean).join(' ');
+
+  if (textCandidates) {
+    // Matches e.g. "Average cleaning duration: 2h00" or "Durée moyenne du ménage: 2h00" or "2h00", "2h30", "2h"
+    const match = /(?:average\s+cleaning\s+duration|durée\s+moyenne\s+du\s+ménage|duration|durée)?[:\s]*(\d+h(?:\d{2})?)/i.exec(textCandidates);
+    if (match && match[1]) {
+      const val = match[1];
+      if (/^\d+h00$/i.test(val)) {
+        return val.replace(/h00$/i, 'h');
+      }
+      return val;
+    }
+
+    const hourMatch = /(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/i.exec(textCandidates);
+    if (hourMatch && hourMatch[1]) {
+      return `${hourMatch[1]}h`;
+    }
+  }
+
+  return null;
+};
+
+/**
  * A "YYYY-MM-DD" day key rendered in the app's language ("samedi 19 septembre").
  * Built from local date parts — parsing the key as a timestamp would read it
  * as UTC midnight and show the previous day west of Greenwich.

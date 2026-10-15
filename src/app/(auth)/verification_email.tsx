@@ -182,10 +182,15 @@ export default function VerificationEmailScreen() {
                                         {email}
                                     </Body6>
                                     <Pressable onPress={() => router.back()}>
-                                        <Caption3 color={"#35A9D6"}>{t("Modify?")}</Caption3>
+                                        <Caption3 color={"#35A9D6"}>{t("Edit")}</Caption3>
                                     </Pressable>
                                 </View>
                             </View>
+
+                            {/* Spam folder notice */}
+                            <Caption3 color={Colors.TEXT_COLOR} style={{ marginBottom: hp(16), textAlign: 'center', lineHeight: 18 }}>
+                                {t("If you don't receive the email, please check your spam or junk folder.")}
+                            </Caption3>
 
                             {/* OTP boxes */}
                             <Caption3 color={Colors.PRIMARY_TEXT} style={styles.label}>

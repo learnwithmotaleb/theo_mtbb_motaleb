@@ -8,6 +8,8 @@ export type TaskStatus =
 
 export type Task = {
     id: string;
+    recordId?: string;
+    kind?: 'schedule' | 'assignment';
     status: TaskStatus;
     statusLabel: string;
     apartmentName: string;

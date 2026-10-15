@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
         width: wp(52),
         height: wp(52),
         borderRadius: wp(26),
+        overflow: 'hidden',
     },
     avatarPlaceholder: { backgroundColor: Colors.BORDER_COLOR },
     profileText: { flex: 1 },

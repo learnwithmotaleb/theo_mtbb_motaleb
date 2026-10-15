@@ -4,11 +4,14 @@ import { SearchIcon } from '@/assets/icons/common_icon/SearchIcon';
 import { Body5, Caption1, Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
-import { toConversationRow } from '@/lib/mappers';
-import { useGetConversationsQuery } from '@/redux/services/chatApi';
+import { showToast } from '@/components/shared/Toast';
+import { getApiErrorMessage } from '@/lib/apiError';
+import { avatarSource, ConversationRow as ConversationRowData, personName, toConversationRow } from '@/lib/mappers';
+import { useGetAccommodationsQuery } from '@/redux/services/accommodationApi';
+import { useGetConversationsQuery, useStartConversationMutation } from '@/redux/services/chatApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
@@ -21,16 +24,52 @@ export default function HostMessageScreen() {
 
     // Poll while the list is on screen so a new message bumps its row without
     // needing a socket connection.
-    const { data, isLoading, refetch } = useGetConversationsQuery(
+    const { data, isLoading: isChatLoading, refetch: refetchChat } = useGetConversationsQuery(
         { page: 1, limit: 50 },
         { pollingInterval: 15000 },
     );
-    const { refreshing, onRefresh } = useRefresh([refetch]);
 
-    const conversations = useMemo(
-        () => (data?.data ?? []).map(toConversationRow),
-        [data],
+    // Host accommodations - so assigned cleaners automatically appear in Messages.
+    const { data: accommodationsData, isLoading: isAccLoading, refetch: refetchAccommodations } = useGetAccommodationsQuery(
+        { limit: 100 },
+        { pollingInterval: 30000 },
     );
+
+    const { refreshing, onRefresh } = useRefresh([refetchChat, refetchAccommodations]);
+    const [startConversation] = useStartConversationMutation();
+
+    const conversations = useMemo(() => {
+        const rawConvs = (data?.data ?? []).map(toConversationRow);
+        const seenCleanerIds = new Set<string>();
+
+        rawConvs.forEach((c) => {
+            if (c.otherParticipantId) seenCleanerIds.add(c.otherParticipantId);
+        });
+
+        const extraCleaners: ConversationRowData[] = [];
+        (accommodationsData?.data ?? []).forEach((acc) => {
+            const assigned = (acc.assignedCleaners ?? []) as any[];
+            assigned.forEach((entry) => {
+                if (entry.status === 'refused') return;
+                const cleaner = entry.cleaner ?? (typeof entry === 'object' && entry._id ? entry : null);
+                if (!cleaner?._id) return;
+                if (seenCleanerIds.has(cleaner._id)) return;
+                seenCleanerIds.add(cleaner._id);
+
+                extraCleaners.push({
+                    id: `cleaner-${cleaner._id}`,
+                    name: personName(cleaner, t('Housekeeper')),
+                    image: avatarSource(cleaner.profileImage),
+                    lastMessage: t("Tap to start chatting"),
+                    time: '',
+                    unreadCount: 0,
+                    otherParticipantId: cleaner._id,
+                });
+            });
+        });
+
+        return [...rawConvs, ...extraCleaners];
+    }, [data, accommodationsData, t]);
 
     // Deep link (e.g. from a push notification) straight into a thread.
     useEffect(() => {
@@ -50,6 +89,28 @@ export default function HostMessageScreen() {
                 c.lastMessage.toLowerCase().includes(needle),
         );
     }, [conversations, search]);
+
+    const handleNavigate = useCallback(async (item: ConversationRowData) => {
+        if (item.id.startsWith('cleaner-') && item.otherParticipantId) {
+            try {
+                const conv = await startConversation({ receiverId: item.otherParticipantId }).unwrap();
+                router.push({
+                    pathname: '/host/message/chat' as any,
+                    params: { conversationId: conv._id },
+                });
+            } catch (err) {
+                showToast(getApiErrorMessage(err, t("Could not open the conversation.")), 'error');
+            }
+            return;
+        }
+
+        router.push({
+            pathname: '/host/message/chat' as any,
+            params: { conversationId: item.id },
+        });
+    }, [router, startConversation, t]);
+
+    const isLoading = isChatLoading && isAccLoading;
 
     return (
         <SafeAreaView style={styles.safe}>
@@ -89,12 +150,7 @@ export default function HostMessageScreen() {
                 renderItem={({ item }) => (
                     <Pressable
                         style={styles.row}
-                        onPress={() =>
-                            router.push({
-                                pathname: '/host/message/chat' as any,
-                                params: { conversationId: item.id },
-                            })
-                        }
+                        onPress={() => handleNavigate(item)}
                     >
                         <AppImage
                             source={item.image}
@@ -120,6 +176,7 @@ export default function HostMessageScreen() {
         </SafeAreaView>
     );
 }
+
 
 const styles = StyleSheet.create({
     safe: {

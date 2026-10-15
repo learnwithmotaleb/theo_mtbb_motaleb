@@ -6,11 +6,14 @@ import { Body7, Caption3, H1 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 import { accommodationPhoto } from '@/lib/mappers';
-import { useGetPlanningQuery } from '@/redux/services/accommodationApi';
+import { useGetAccommodationsQuery } from '@/redux/services/accommodationApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { hp, wp } from '../../../../utils/responsiveDevice';
 
 /** A row of the property picker that fronts the calendar. */
 type PlanningProperty = {
@@ -19,8 +22,6 @@ type PlanningProperty = {
     location: string;
     image: any;
 };
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { hp, wp } from '../../../../utils/responsiveDevice';
 
 function PropertyCard({ item }: { item: PlanningProperty }) {
     const router = useRouter();
@@ -52,9 +53,12 @@ function PropertyCard({ item }: { item: PlanningProperty }) {
 
 export default function PlanningScreen() {
     const t = useT();
-    // "Planning" lists every accommodation together with its connected iCal
-    // feeds, so the calendar can merge bookings with scheduled cleanings.
-    const { data, isLoading, refetch } = useGetPlanningQuery({ page: 1, limit: 50 });
+    // Show all host accommodations in planning, even if no cleaner or calendar is assigned yet.
+    const { data, isLoading, refetch } = useGetAccommodationsQuery(
+        { page: 1, limit: 100 },
+        { refetchOnMountOrArgChange: true }
+    );
+
     const { refreshing, onRefresh } = useRefresh([refetch]);
 
     const properties = useMemo<PlanningProperty[]>(

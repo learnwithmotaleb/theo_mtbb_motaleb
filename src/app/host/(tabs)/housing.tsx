@@ -96,7 +96,10 @@ export default function HousingScreen() {
 
     // Show ALL accommodations regardless of cleaner assignment or calendar
     // connection status — every property must always appear here.
-    const { data, isLoading, refetch } = useGetAccommodationsQuery({ page: 1, limit: 50 });
+    const { data, isLoading, refetch } = useGetAccommodationsQuery(
+        { page: 1, limit: 50 },
+        { refetchOnMountOrArgChange: true },
+    );
     const { refreshing, onRefresh } = useRefresh([refetch]);
 
     // A cleaner accepting an invitation happens on another device, so the
@@ -107,10 +110,14 @@ export default function HousingScreen() {
         }, [refetch]),
     );
 
-    const housing = useMemo(
-        () => (data?.data ?? []).map(toHousingItem),
-        [data],
-    );
+    const housing = useMemo(() => {
+        const list = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.data)
+            ? data.data
+            : (data as any)?.accommodations ?? [];
+        return list.map(toHousingItem);
+    }, [data]);
 
     return (
         <SafeAreaView style={styles.safe}>

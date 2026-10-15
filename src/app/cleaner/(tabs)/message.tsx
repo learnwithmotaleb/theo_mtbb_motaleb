@@ -4,8 +4,11 @@ import { SearchIcon } from '@/assets/icons/common_icon/SearchIcon';
 import { Body5, Caption1, Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
-import { ConversationRow as ConversationRowData, toConversationRow } from '@/lib/mappers';
-import { useGetConversationsQuery } from '@/redux/services/chatApi';
+import { showToast } from '@/components/shared/Toast';
+import { getApiErrorMessage } from '@/lib/apiError';
+import { avatarSource, ConversationRow as ConversationRowData, personName, toConversationRow } from '@/lib/mappers';
+import { useGetMyCleanerAccommodationsQuery } from '@/redux/services/assignmentApi';
+import { useGetConversationsQuery, useStartConversationMutation } from '@/redux/services/chatApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -14,22 +17,54 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
 export default function CleanerMessageScreen() {
-    const t = useT();
+  const t = useT();
   const router = useRouter();
   const [search, setSearch] = useState('');
 
-  // Poll while the list is on screen so a new message bumps its row without
-  // needing a socket connection.
-  const { data, isLoading, refetch } = useGetConversationsQuery(
+  // 1. Existing conversations
+  const { data, isLoading: isChatLoading, refetch: refetchChat } = useGetConversationsQuery(
     { page: 1, limit: 50 },
     { pollingInterval: 15000 },
   );
-  const { refreshing, onRefresh } = useRefresh([refetch]);
 
-  const conversations = useMemo(
-    () => (data?.data ?? []).map(toConversationRow),
-    [data],
+  // 2. Added hosts / accepted clients — so as soon as a cleaner adds a host,
+  // the host's profile automatically appears in Messages.
+  const { data: clientsData, isLoading: isClientsLoading, refetch: refetchClients } = useGetMyCleanerAccommodationsQuery(
+    { page: 1, limit: 50 },
   );
+
+  const { refreshing, onRefresh } = useRefresh([refetchChat, refetchClients]);
+  const [startConversation] = useStartConversationMutation();
+
+  const conversations = useMemo(() => {
+    const rawConvs = (data?.data ?? []).map(toConversationRow);
+    const seenHostIds = new Set<string>();
+
+    rawConvs.forEach((c) => {
+      if (c.otherParticipantId) seenHostIds.add(c.otherParticipantId);
+    });
+
+    // Append any accepted host who does not yet have an active conversation
+    const extraHosts: ConversationRowData[] = [];
+    (clientsData?.data ?? []).forEach((assignment) => {
+      const host = assignment.host as any;
+      if (!host?._id) return;
+      if (seenHostIds.has(host._id)) return;
+      seenHostIds.add(host._id);
+
+      extraHosts.push({
+        id: `host-${host._id}`,
+        name: personName(host, t('Host')),
+        image: avatarSource(host.profileImage),
+        lastMessage: t("Tap to start chatting"),
+        time: '',
+        unreadCount: 0,
+        otherParticipantId: host._id,
+      });
+    });
+
+    return [...rawConvs, ...extraHosts];
+  }, [data, clientsData, t]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -41,14 +76,27 @@ export default function CleanerMessageScreen() {
     );
   }, [conversations, search]);
 
-  const handleNavigate = useCallback((id: string) => {
+  const handleNavigate = useCallback(async (item: ConversationRowData) => {
+    if (item.id.startsWith('host-') && item.otherParticipantId) {
+      try {
+        const conv = await startConversation({ receiverId: item.otherParticipantId }).unwrap();
+        router.push({
+          pathname: '/cleaner/message/chat' as any,
+          params: { conversationId: conv._id },
+        });
+      } catch (err) {
+        showToast(getApiErrorMessage(err, t("Could not open the conversation.")), 'error');
+      }
+      return;
+    }
+
     router.push({
       pathname: '/cleaner/message/chat' as any,
-      params: { conversationId: id },
+      params: { conversationId: item.id },
     });
-  }, [router]);
+  }, [router, startConversation, t]);
 
-
+  const isLoading = isChatLoading && isClientsLoading;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -86,8 +134,7 @@ export default function CleanerMessageScreen() {
           )
         }
         renderItem={({ item }) => (
-          <ConversationRow item={item} onPress={handleNavigate} />
-
+          <ConversationRow item={item} onPress={() => handleNavigate(item)} />
         )}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.list}
@@ -97,14 +144,12 @@ export default function CleanerMessageScreen() {
   );
 }
 
-
-
 const ConversationRow = React.memo(function ConversationRow({ item, onPress }: {
   item: ConversationRowData,
-  onPress: (id: string) => void
+  onPress: () => void
 }) {
   return (
-    <Pressable style={styles.row} onPress={() => onPress(item.id)}>
+    <Pressable style={styles.row} onPress={onPress}>
       <AppImage source={item.image} style={styles.avatar} contentFit="cover" />
       <View style={styles.rowInfo}>
         <Caption1 color={Colors.PRIMARY_TEXT}>{item.name}</Caption1>

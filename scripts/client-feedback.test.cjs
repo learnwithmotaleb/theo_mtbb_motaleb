@@ -99,15 +99,15 @@ test('day keys render on the right day in French', () => {
 test('to-do labels are French whatever English text the backend sends', () => {
   assert.equal(
     mappers.todoLabel({ kind: 'assignment', status: 'accepted', label: 'Cleaner accepted your request' }),
-    "L'agent d'entretien a accepté votre demande",
+    'Demande acceptée',
   );
   assert.equal(
     mappers.todoLabel({ kind: 'schedule', status: 'completed', label: 'Cleaning completed' }),
-    'Ménage terminé',
+    'Preuve de ménage à valider',
   );
   assert.equal(
     mappers.todoLabel({ kind: 'assignment', status: 'pending', label: 'x' }),
-    "Invitation envoyée – En attente d'acceptation",
+    'Demande en attente',
   );
   // Unknown combination: falls back to the backend text.
   assert.equal(mappers.todoLabel({ kind: 'schedule', status: 'weird', label: 'Something' }), 'Something');

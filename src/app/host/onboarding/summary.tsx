@@ -92,7 +92,10 @@ export default function SummaryScreen() {
             },
             {
                 label: t("Average duration"),
-                value: draft.instructions || t("Not set"),
+                value: (draft.instructions ?? '').replace(
+                    /^Average cleaning duration:\s*/i,
+                    `${t("Average cleaning duration")}: `
+                ) || t("Not set"),
                 route: '/host/onboarding/cleaning_duration',
             },
             {
@@ -103,7 +106,7 @@ export default function SummaryScreen() {
                 route: '/host/onboarding/cleaning_duration',
             },
         ],
-        [draft, t],
+        [draft, t, formatMoney],
     );
 
     // The whole wizard is one POST /accommodation — nothing was saved before.
