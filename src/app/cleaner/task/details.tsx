@@ -1,5 +1,5 @@
 import { SkeletonDetail } from '@/components/shared/Skeleton';
-import { useT } from '@/i18n';
+import { useIntlLocale, useT } from '@/i18n';
 import { AppertmentIcon } from '@/assets/icons/cleaner_icon/AppartmentIcon';
 import { BathRoomIcon } from '@/assets/icons/cleaner_icon/BathRoomIcon';
 import { BedRoomIcon } from '@/assets/icons/cleaner_icon/BedRoomIcon';
@@ -16,6 +16,7 @@ import { ThreeDotsIcon } from '@/assets/icons/host_icon/ThreeDots';
 import { CancelTaskModal } from '@/components/cleaner/task/CancelTaskModal';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
+import { CleaningStatusBadge } from '@/components/cleaner/CleaningStatusBadge';
 import { Body1, Body6, Caption1, Caption2, Caption3, Caption4, Caption5 } from '@/components/typo/Typography';
 import { showToast } from '@/components/shared/Toast';
 import { Colors } from '@/constants/theme';
@@ -57,6 +58,7 @@ function PropertyRow({
 
 export default function TaskDetailsScreen() {
     const t = useT();
+    const locale = useIntlLocale();
     const router = useRouter();
     const { taskId, isUpcoming } = useLocalSearchParams<{
         taskId: string;
@@ -84,7 +86,9 @@ export default function TaskDetailsScreen() {
                 payAmount: null,
                 payCurrency: 'EUR',
             } as MissionCard),
-        [schedule],
+        // locale: the mapper translates labels, so re-run on a language switch.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [schedule, locale],
     );
 
     // A schedule the cleaner has not answered yet: the footer offers
@@ -167,6 +171,7 @@ export default function TaskDetailsScreen() {
                             <Caption3 color={Colors.TEXT_COLOR}>{task.address}</Caption3>
                         </View>
                         <View style={{ flexDirection: 'row', gap: wp(6), alignItems: 'center', flexWrap: 'wrap' }}>
+                            <CleaningStatusBadge status={schedule?.status} />
                             <View style={styles.principalBadge}>
                                 <Caption4 color={Colors.TEXT_COLOR}>
                                     {task.isPrincipal ? <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: wp(4) }}>

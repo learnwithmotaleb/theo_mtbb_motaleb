@@ -5,6 +5,7 @@ import { useT } from '@/i18n';
 import React, { useState } from 'react';
 import {
     FlatList,
+    type LayoutChangeEvent,
     Modal,
     Pressable,
     StyleSheet,
@@ -21,21 +22,46 @@ interface Props {
     placeholder?: string;
     /** How an option reads on screen. Defaults to its translation. */
     getLabel?: (option: string) => string;
+    /** Adds a red ✱ after the label. */
+    required?: boolean;
+    /** Shown under the field, which turns red. */
+    error?: string | null;
+    /** Grey help line under the field (hidden while there is an error). */
+    hint?: string | null;
+    onLayout?: (event: LayoutChangeEvent) => void;
 }
 
-export function FormDropdown({ label, value, options, onChange, placeholder, getLabel }: Props) {
+export function FormDropdown({
+    label,
+    value,
+    options,
+    onChange,
+    placeholder,
+    getLabel,
+    required,
+    error,
+    hint,
+    onLayout,
+}: Props) {
     const t = useT();
     const display = getLabel ?? ((option: string) => t(option));
     const [open, setOpen] = useState(false);
 
     return (
-        <View style={styles.wrapper}>
+        <View style={styles.wrapper} onLayout={onLayout}>
             <Body6 color={Colors.PRIMARY_TEXT} style={styles.label}>
                 {label}
+                {required && <Body6 color={Colors.COLOR_DANGER}> ✱</Body6>}
             </Body6>
 
             {/* Trigger */}
-            <Pressable style={styles.box} onPress={() => setOpen(true)}>
+            <Pressable
+                style={[styles.box, !!error && styles.boxError]}
+                onPress={() => setOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityHint={error ?? undefined}
+            >
                 <Caption3
                     color={value ? Colors.PRIMARY_TEXT : Colors.TEXT_COLOR}
                     style={{ flex: 1 }}
@@ -44,6 +70,15 @@ export function FormDropdown({ label, value, options, onChange, placeholder, get
                 </Caption3>
                 <Caption3 color={Colors.TEXT_COLOR}><DownArrowIcon color={Colors.TEXT_COLOR}/></Caption3>
             </Pressable>
+            {error ? (
+                <Caption3 color={Colors.COLOR_DANGER} style={styles.helper}>
+                    {error}
+                </Caption3>
+            ) : hint ? (
+                <Caption3 color={Colors.TEXT_COLOR} style={styles.helper}>
+                    {hint}
+                </Caption3>
+            ) : null}
 
             {/* Modal dropdown */}
             <Modal
@@ -109,7 +144,11 @@ const styles = StyleSheet.create({
         borderRadius: wp(10),
         paddingHorizontal: wp(16),
         paddingVertical: hp(14),
+        borderWidth: 1,
+        borderColor: 'transparent',
     },
+    boxError: { borderColor: Colors.COLOR_DANGER, backgroundColor: '#FF383C0D' },
+    helper: { marginTop: hp(6) },
     // Modal
     overlay: {
         flex: 1,

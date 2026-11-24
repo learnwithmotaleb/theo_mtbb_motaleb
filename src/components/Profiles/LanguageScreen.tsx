@@ -12,9 +12,10 @@ import { hp, wp } from '../../../utils/responsiveDevice';
 import SectionTitle from '../shared/SectionTitle';
 
 // Labels stay in their own language, the way language pickers normally do.
+// French is the app's default language, so it comes first.
 const LANGUAGES: { code: Locale; label: string; flag: string }[] = [
-    { code: 'en', label: 'English', flag: '🇬🇧' },
     { code: 'fr', label: 'Français', flag: '🇫🇷' },
+    { code: 'en', label: 'English', flag: '🇬🇧' },
 ];
 
 export function LanguageScreen() {

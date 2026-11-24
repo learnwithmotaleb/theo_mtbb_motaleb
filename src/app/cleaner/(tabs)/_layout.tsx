@@ -6,7 +6,10 @@ import { MessageIcon } from "@/assets/icons/host_icon/MessageIcon";
 import { PlanningIcon } from "@/assets/icons/host_icon/PlanningIcon";
 import { usePendingRequestCount } from '@/redux/services/assignmentApi';
 import { usePendingScheduleCount } from '@/redux/services/scheduleApi';
-import { Tabs } from "expo-router";
+import { useScheduleLiveUpdates } from '@/hooks/useScheduleLiveUpdates';
+import { cleanerNeedsOnboarding } from '@/hooks/useSession';
+import { useAppSelector } from '@/redux/hooks';
+import { Redirect, Tabs } from "expo-router";
 import React from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +35,15 @@ export default function PatientTabsLayout() {
     const pendingAssignments = usePendingRequestCount();
     const pendingSchedules = usePendingScheduleCount();
     const pendingRequests = pendingAssignments + pendingSchedules;
+    // Host-side changes refresh the status badges live (Socket.io).
+    useScheduleLiveUpdates();
+
+    // Onboarding data never saved (SIRET, city…): finish it before home,
+    // whichever way the cleaner got here (login, app restart, end of signup).
+    const user = useAppSelector((s) => s.auth.user);
+    if (cleanerNeedsOnboarding(user)) {
+        return <Redirect href={'/cleaner/onboarding/housekeeper_welcome' as never} />;
+    }
 
     return (
         <Tabs

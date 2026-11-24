@@ -6,6 +6,7 @@ import SectionTitle from '@/components/shared/SectionTitle';
 import { Caption2, Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { accommodationLocation, accommodationPhoto } from '@/lib/mappers';
+import { roomsText } from '@/constants/accommodation';
 
 import { useGetAccommodationForCleanerQuery } from '@/redux/services/accommodationApi';
 import { AppImage } from '@/components/shared/AppImage';
@@ -40,14 +41,14 @@ export default function AccommodationDetailScreen() {
             name: data?.name ?? 'Accommodation',
             location: accommodationLocation(data),
             image: accommodationPhoto(data),
-            accommodationType: data?.accommodationType ?? '-',
-            bedrooms: data?.numberOfRooms != null ? String(data.numberOfRooms) : '-',
+            accommodationType: data?.accommodationType ? t(data.accommodationType) : '-',
+            bedrooms: roomsText(data?.numberOfRooms, t) || '-',
             surface: data?.surface != null ? String(data.surface) + ' m2' : '-',
             floor: data?.floor || '-',
-            elevator: data?.hasElevator ? 'Yes' : 'No',
+            elevator: data?.hasElevator ? t('Yes') : t('No'),
             cleaningRate: formatMoney(data?.cleaningRate ?? 0),
         }),
-        [data],
+        [data, t, formatMoney],
     );
 
     if (isLoading && !data) {

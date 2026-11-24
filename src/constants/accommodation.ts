@@ -19,6 +19,29 @@ export const hasFloorAndElevator = (type?: string | null): boolean =>
 /** How the cleaner gets the keys. */
 export const KEY_OPTIONS = ['Key box', 'Hand delivery'] as const;
 
+/** A lockbox code only means something when the keys are in a key box. */
+export const usesKeyBox = (keys?: string | null): boolean => keys === 'Key box';
+
+/** Backend limit on `accessCode` / `doorCode`. */
+export const ACCESS_CODE_MAX_LENGTH = 200;
+
+/**
+ * Guest departure / next arrival times: 05:00 → 23:30 every 30 minutes, the
+ * same "HH:mm" the backend stores. The slot stays within one day (departure
+ * before arrival): the app's slot display orders the two times by clock.
+ */
+export const TURNOVER_TIME_OPTIONS: string[] = Array.from({ length: 38 }, (_, i) => {
+  const minutes = 5 * 60 + i * 30;
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${minutes % 60 ? '30' : '00'}`;
+});
+
+/** Arrival times that can follow this departure ("HH:mm" sorts by clock). */
+export const arrivalOptionsAfter = (departure?: string | null): string[] =>
+  departure ? TURNOVER_TIME_OPTIONS.filter((time) => time > departure) : TURNOVER_TIME_OPTIONS;
+
+/** Departure times that leave at least one later arrival. */
+export const DEPARTURE_TIME_OPTIONS = TURNOVER_TIME_OPTIONS.slice(0, -1);
+
 /** "3 rooms (T3)" in the dropdown; the API wants the number. */
 export const ROOM_OPTIONS = [
   '1 room (T1)',

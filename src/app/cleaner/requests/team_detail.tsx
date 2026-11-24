@@ -16,6 +16,7 @@ import { Body1, Body6, Caption2, Caption3, Caption4 } from '@/components/typo/Ty
 import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { accommodationLocation, accommodationPhoto, avatarSource, personName } from '@/lib/mappers';
+import { roomsText } from '@/constants/accommodation';
 
 import { useGetAccommodationForCleanerQuery } from '@/redux/services/accommodationApi';
 import { useRespondToAssignmentMutation } from '@/redux/services/assignmentApi';
@@ -67,16 +68,18 @@ export default function TeamDetailScreen() {
             location: accommodationLocation(data),
             image: accommodationPhoto(data),
             frequency: data?.frequency || t("On demand"),
-            type: data?.accommodationType ?? '-',
+            type: data?.accommodationType ? t(data.accommodationType) : '-',
             surface: data?.surface != null ? String(data.surface) + ' m2' : '-',
             floor: data?.floor || '-',
-            rooms: data?.numberOfRooms != null ? String(data.numberOfRooms) : '-',
-            elevator: data?.hasElevator ? 'Yes' : 'No',
+            rooms: roomsText(data?.numberOfRooms, t) || '-',
+            elevator: data?.hasElevator ? t('Yes') : t('No'),
             access: data?.keys || t("See instructions"),
             cleaningRate: formatMoney(
                 myAssignment?.pricePerCleaning ?? data?.cleaningRate ?? 0,
             ),
-            keyBox: data?.keys || '-',
+            keyBox: data?.keys ? t(data.keys) : '-',
+            // The backend withholds the code until the host's request is accepted.
+            codeHidden: data?.accessCodesVisible === false,
             keyBoxCode: data?.accessCode || data?.doorCode || '-',
             specificInstruction: data?.instructions || t("No specific instruction."),
             client: {
@@ -207,7 +210,13 @@ export default function TeamDetailScreen() {
                         <View style={styles.keyDivider} />
                         <View style={styles.keyBox}>
                             <Caption4 color={Colors.TEXT_COLOR}>{t("Key Box Code")}</Caption4>
-                            <Body6 color={Colors.PRIMARY_TEXT}>{request.keyBoxCode}</Body6>
+                            {request.codeHidden ? (
+                                <Caption4 color={Colors.TEXT_COLOR}>
+                                    {t("The code will be visible once the request is accepted.")}
+                                </Caption4>
+                            ) : (
+                                <Body6 color={Colors.PRIMARY_TEXT}>{request.keyBoxCode}</Body6>
+                            )}
                         </View>
                     </View>
                     <View style={styles.instructionBox}>

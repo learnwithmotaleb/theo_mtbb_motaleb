@@ -15,6 +15,7 @@ import { TaskStatus } from '@/types/hostTypes';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { resolveAssetUrl } from '@/lib/config';
 import { formatCleaningWindow } from '@/lib/datetime';
+import { isSchedulePaid } from '@/lib/pricing';
 import {
     accommodationLocation,
     accommodationPhoto,
@@ -51,9 +52,10 @@ export default function TaskStatusScreen() {
     const router = useRouter();
     // The home feed passes the record's id plus which kind of record it is,
     // so we know whether to read a schedule or an assignment.
-    const { taskId, kind, status: statusParam } = useLocalSearchParams<{
+    const { taskId, kind, status: statusParam, eventStatus } = useLocalSearchParams<{
         taskId: string;
         kind?: 'schedule' | 'assignment';
+        eventStatus?: string;
         status?: TaskStatus;
     }>();
 
@@ -61,6 +63,8 @@ export default function TaskStatusScreen() {
 
     const { data: schedule, isLoading } = useGetScheduleByIdQuery(taskId, {
         skip: !taskId || !isSchedule,
+        // Acceptance and payment change on other devices / via Stripe.
+        refetchOnMountOrArgChange: true,
     });
 
     const [completeSchedule, { isLoading: isCompleting }] = useCompleteScheduleMutation();
@@ -77,6 +81,7 @@ export default function TaskStatusScreen() {
         if (!isSchedule) return statusParam ?? 'pending_accept';
         switch (schedule?.status) {
             case 'refused':
+            case 'expired':
                 return 'refused';
             case 'completed':
             case 'proof_submitted':
@@ -148,6 +153,9 @@ export default function TaskStatusScreen() {
         }
     };
 
+    const isAccepted = ['accepted', 'in_progress'].includes(String(schedule?.status ?? ''));
+    const needsPayment = isAccepted && schedule?.paymentStatus === 'unpaid';
+
     const timeSlot = formatCleaningWindow(schedule?.checkInTime, schedule?.checkOutTime);
 
     const renderContent = () => {
@@ -173,6 +181,13 @@ export default function TaskStatusScreen() {
                             })),
                         }}
                         onInvite={handleInvite}
+                        variant={
+                            schedule?.status === 'expired'
+                                ? 'expired'
+                                : eventStatus === 'left'
+                                    ? 'left'
+                                    : 'refused'
+                        }
                     />
                 );
 
@@ -294,9 +309,44 @@ export default function TaskStatusScreen() {
 
                         <View style={styles.statusNoteBox}>
                             <Caption3 color={Colors.COLOR_ACTIVE}>
-                                {t("Ménage planifié – En attente de validation par l'agent d'entretien.")}
+                                {isAccepted
+                                    ? t('Request accepted by the cleaner.')
+                                    : t("Ménage planifié – En attente de validation par l'agent d'entretien.")}
                             </Caption3>
                         </View>
+
+                        {/* Payment only opens once the cleaner has accepted. */}
+                        {isAccepted && (
+                            <View style={styles.detailRow}>
+                                <Caption3 color={Colors.TEXT_COLOR}>{t('Payment')}</Caption3>
+                                <Caption3
+                                    color={isSchedulePaid(schedule?.paymentStatus) ? Colors.SUCCESS_COLOR : Colors.COLOR_ORANGE}
+                                >
+                                    {isSchedulePaid(schedule?.paymentStatus)
+                                        ? t('Paid')
+                                        : schedule?.paymentStatus === 'handcash_pending'
+                                          ? t('To settle with the cleaner')
+                                          : t('Awaiting payment')}
+                                </Caption3>
+                            </View>
+                        )}
+                        {needsPayment && (
+                            <CustomButton
+                                title={t('Pay for the cleaning')}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: '/host/payment/payment_type',
+                                        params: { scheduleId: taskId },
+                                    } as any)
+                                }
+                                backgroundColor={Colors.PRIMARY_TEXT}
+                                color="#fff"
+                                width="100%"
+                                height={hp(48)}
+                                borderRadius={wp(8)}
+                                style={{ marginTop: hp(16) }}
+                            />
+                        )}
 
                         {cleaner?._id ? (
                             <CustomButton
@@ -328,7 +378,15 @@ export default function TaskStatusScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
-            <SectionTitle title={t(TITLE_MAP[status])} />
+            <SectionTitle
+                title={t(
+                    schedule?.status === 'expired'
+                        ? 'Demande expirée'
+                        : eventStatus === 'left'
+                            ? 'Fin de collaboration'
+                            : TITLE_MAP[status],
+                )}
+            />
             <View style={styles.content}>
                 {isLoading && !schedule ? (
                     <SkeletonDetail />

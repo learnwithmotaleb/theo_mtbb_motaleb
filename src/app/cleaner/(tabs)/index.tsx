@@ -8,6 +8,7 @@ import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 
+import { cleaningBadge } from '@/lib/cleaningStatus';
 import { personName, toCleanerTask } from '@/lib/mappers';
 import { useCurrentUser } from '@/redux/hooks';
 import { useGetCleanerHomeQuery, usePendingScheduleCount } from '@/redux/services/scheduleApi';
@@ -53,8 +54,10 @@ export default function CleanerHomeScreen() {
     const router = useRouter();
     const me = useCurrentUser();
 
+    // Badges follow host-side changes too: refetch on focus and every minute.
     const { data, isLoading, refetch } = useGetCleanerHomeQuery(undefined, {
         refetchOnFocus: true,
+        pollingInterval: 60_000,
     });
     const { refreshing, onRefresh } = useRefresh([refetch]);
     const pendingAssignments = usePendingRequestCount();
@@ -73,6 +76,16 @@ export default function CleanerHomeScreen() {
         () => (data?.todaysCleaning ?? []).map(toCleanerTask),
         [data],
     );
+    // Counters follow the badges: "Terminées" = today's cleanings shown as
+    // «Effectué» (proof sent or validated), "Missions du jour" = the rest.
+    // The backend's summary counts proof_submitted as a mission, which made a
+    // cleaning read «Effectué» while the counter still said 0 completed.
+    const { missionsToday, completedToday } = useMemo(() => {
+        const visible = todaysTasks.filter((task) => cleaningBadge(task.status));
+        const done = visible.filter((task) => cleaningBadge(task.status)?.kind === 'done').length;
+        return { missionsToday: visible.length - done, completedToday: done };
+    }, [todaysTasks]);
+
     const upcomingTasks = useMemo(
         () => (data?.upcomingTasks ?? []).map(toCleanerTask),
         [data],
@@ -102,14 +115,14 @@ export default function CleanerHomeScreen() {
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
                             <H2 color={Colors.PRIMARY_TEXT}>
-                                {data?.summary?.missionsToday ?? 0}
+                                {missionsToday}
                             </H2>
                             <Caption3 color={Colors.TEXT_COLOR}>{t("MISSIONS TODAY")}</Caption3>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
                             <H2 color={Colors.PRIMARY_TEXT}>
-                                {data?.summary?.completedToday ?? 0}
+                                {completedToday}
                             </H2>
                             <Caption3 color={Colors.TEXT_COLOR}>{t("COMPLETED")}</Caption3>
                         </View>

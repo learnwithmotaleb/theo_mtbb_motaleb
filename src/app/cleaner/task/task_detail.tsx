@@ -1,14 +1,15 @@
 import { SkeletonDetail } from '@/components/shared/Skeleton';
-import { useT } from '@/i18n';
+import { useIntlLocale, useT } from '@/i18n';
 import { LocationIcon } from '@/assets/icons/cleaner_icon/LocationIcon';
 import { ClockIcon } from '@/assets/icons/host_icon/ClockIcon';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
+import { CleaningStatusBadge } from '@/components/cleaner/CleaningStatusBadge';
 import { showToast } from '@/components/shared/Toast';
 import { Body5, Body6, Caption2, Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { cleaningHours, extractCleaningDuration, formatCleaningWindow } from '@/lib/datetime';
+import { cleaningEstimate, formatCleaningWindow } from '@/lib/datetime';
 import { toCleanerTask } from '@/lib/mappers';
 import {
     useGetScheduleByIdQuery,
@@ -22,6 +23,7 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+import { UPLOAD_PICKER_OPTIONS } from '@/lib/photoUpload';
 
 function InfoRow({ label, value }: { label: string; value: string }) {
     return (
@@ -34,6 +36,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 export default function TaskDetailScreen() {
     const t = useT();
+    const locale = useIntlLocale();
     const router = useRouter();
     const { taskId, dispute } = useLocalSearchParams<{
         taskId: string;
@@ -60,17 +63,17 @@ export default function TaskDetailScreen() {
                 payAmount: null,
                 payCurrency: 'EUR',
             } as MissionCard),
-        [schedule],
+        // locale: the mapper translates labels, so re-run on a language switch.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [schedule, locale],
     );
 
-    // The estimation the backend derives is only on the mission-card payloads,
-    // so it is recomputed here from the schedule's own times.
-    const estimation = useMemo(() => {
-        const hostDuration = extractCleaningDuration(schedule?.accommodation, schedule);
-        if (hostDuration) return hostDuration;
-        const hours = cleaningHours(schedule?.checkInTime, schedule?.checkOutTime);
-        return hours === null ? '—' : `${hours}h`;
-    }, [schedule]);
+    // The host's cleaning duration (GET /schedule/:id now returns
+    // estimationMinutes too), never the arrival–departure window.
+    const estimation = useMemo(
+        () => cleaningEstimate(schedule?.accommodation, schedule),
+        [schedule],
+    );
 
     const task = {
         image: detail.image,
@@ -84,8 +87,7 @@ export default function TaskDetailScreen() {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) return;
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
+            ...UPLOAD_PICKER_OPTIONS,
         });
         if (!result.canceled && result.assets[0]) {
             setDisputePhotos((prev) => [...prev, result.assets[0].uri]);
@@ -145,6 +147,7 @@ export default function TaskDetailScreen() {
                             <LocationIcon size={13} color={Colors.TEXT_COLOR} />
                             <Caption3 color={Colors.TEXT_COLOR}>{task.address}</Caption3>
                         </View>
+                        <CleaningStatusBadge status={schedule?.status} />
                     </View>
                 </View>
 

@@ -54,3 +54,7 @@ export const formatMoney = (amount?: number | null, currency = 'EUR') => {
     return `${value.toFixed(2)} ${currency}`;
   }
 };
+
+/** Schedule payment states that count as « Payé » for the host. */
+export const isSchedulePaid = (status?: string | null): boolean =>
+  status === 'paid_held' || status === 'released' || status === 'paid_handcash';

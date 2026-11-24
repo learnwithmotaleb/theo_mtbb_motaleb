@@ -3,8 +3,10 @@ import { DownArrowIcon } from '@/assets/icons/common_icon/DownArrowIcon';
 import { ClockIcon } from '@/assets/icons/host_icon/ClockIcon';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
+import { showToast } from '@/components/shared/Toast';
 import { Body5, Body6, H2 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
+import { arrivalOptionsAfter, DEPARTURE_TIME_OPTIONS } from '@/constants/accommodation';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
 import { useRouter } from 'expo-router';
@@ -20,18 +22,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
-const TIME_OPTIONS = [
-    '6:00 AM', '7:00 AM', '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
-    '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM',
-];
 
 function TimeDropdown({
     prefix,
     value,
+    options,
     onChange,
 }: {
     prefix: string;
     value: string;
+    options: string[];
     onChange: (v: string) => void;
 }) {
     const t = useT();
@@ -57,7 +57,7 @@ function TimeDropdown({
                 >
                     <View style={styles.dropdownList}>
                         <FlatList
-                            data={TIME_OPTIONS}
+                            data={options}
                             keyExtractor={(item) => item}
                             renderItem={({ item }) => (
                                 <Pressable
@@ -86,23 +86,21 @@ function TimeDropdown({
     );
 }
 
-/** "4:00 PM" -> "16:00", the "HH:mm" the accommodation model stores. */
-const to24h = (label: string): string => {
-    const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(label.trim());
-    if (!match) return label;
-    let hour = Number(match[1]) % 12;
-    if (match[3].toUpperCase() === 'PM') hour += 12;
-    return `${String(hour).padStart(2, '0')}:${match[2]}`;
-};
-
-/** The inverse, so returning to this screen preselects what was saved. */
-const to12h = (value: string, fallback: string): string => {
-    const match = /^(\d{2}):(\d{2})$/.exec(value ?? '');
-    if (!match) return fallback;
-    const hour = Number(match[1]);
-    const suffix = hour >= 12 ? 'PM' : 'AM';
-    const display = hour % 12 === 0 ? 12 : hour % 12;
-    return `${display}:${match[2]} ${suffix}`;
+/**
+ * Any saved value -> "HH:mm". Accepts "9:00" / "09:00" and, for drafts made
+ * before the switch to 24-hour, "4:00 PM". Anything else uses the fallback.
+ */
+const toClock = (value: string | undefined, fallback: string): string => {
+    const v = (value ?? '').trim();
+    const ampm = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(v);
+    if (ampm) {
+        let hour = Number(ampm[1]) % 12;
+        if (ampm[3].toUpperCase() === 'PM') hour += 12;
+        return `${String(hour).padStart(2, '0')}:${ampm[2]}`;
+    }
+    const clock = /^(\d{1,2}):(\d{2})/.exec(v);
+    if (clock) return `${clock[1].padStart(2, '0')}:${clock[2]}`;
+    return fallback;
 };
 
 export default function CleaningTimeScreen() {
@@ -113,15 +111,28 @@ export default function CleaningTimeScreen() {
 
     // The window a cleaning can happen in: guests leave at check-out and the
     // next ones arrive at check-in.
-    const [startTime, setStartTime] = useState(to12h(draft.checkOutTime, '10:00 AM'));
-    const [endTime, setEndTime] = useState(to12h(draft.checkInTime, '4:00 PM'));
+    const [startTime, setStartTime] = useState(toClock(draft.checkOutTime, '10:00'));
+    const [endTime, setEndTime] = useState(toClock(draft.checkInTime, '16:00'));
     const [isLoading] = useState(false);
 
+    // The slot ends after it starts: a later start pushes the end to the
+    // first time that still follows it.
+    const changeStart = (value: string) => {
+        setStartTime(value);
+        if (endTime <= value) setEndTime(arrivalOptionsAfter(value)[0] ?? endTime);
+    };
+
     const handleContinue = () => {
+        // Drafts saved before this check could hold an end before the start.
+        if (endTime <= startTime) {
+            setEndTime(arrivalOptionsAfter(startTime)[0] ?? endTime);
+            showToast(t("The next guests must arrive after the departure time."), 'error');
+            return;
+        }
         dispatch(
             updateDraft({
-                checkOutTime: to24h(startTime),
-                checkInTime: to24h(endTime),
+                checkOutTime: startTime,
+                checkInTime: endTime,
             }),
         );
         router.push('/host/onboarding/cleaning_duration');
@@ -147,8 +158,18 @@ export default function CleaningTimeScreen() {
                     {t("Preferred time slot")}
                 </Body5>
 
-                <TimeDropdown prefix="Between" value={startTime} onChange={setStartTime} />
-                <TimeDropdown prefix="And" value={endTime} onChange={setEndTime} />
+                <TimeDropdown
+                    prefix="Between"
+                    value={startTime}
+                    options={DEPARTURE_TIME_OPTIONS}
+                    onChange={changeStart}
+                />
+                <TimeDropdown
+                    prefix="And"
+                    value={endTime}
+                    options={arrivalOptionsAfter(startTime)}
+                    onChange={setEndTime}
+                />
 
                 <View style={styles.infoCard}>
                     <ClockIcon size={22} color={Colors.STATUS_COLOR} />

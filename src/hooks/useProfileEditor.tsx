@@ -1,4 +1,5 @@
 import { useT } from '@/i18n';
+import { UPLOAD_PICKER_OPTIONS, uploadFile } from '@/lib/photoUpload';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useState } from 'react';
 import { Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -81,23 +82,15 @@ export const useProfileEditor = () => {
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
+            ...UPLOAD_PICKER_OPTIONS,
             allowsEditing: true,
             aspect: [1, 1],
-            quality: 0.8,
         });
         if (result.canceled || !result.assets?.length) return;
 
         const asset = result.assets[0];
-        const name = asset.fileName ?? asset.uri.split('/').pop() ?? 'avatar.jpg';
-        const ext = name.split('.').pop()?.toLowerCase() ?? 'jpg';
-
         const form = new FormData();
-        form.append('profileImage', {
-            uri: asset.uri,
-            name,
-            type: asset.mimeType ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-        } as unknown as Blob);
+        form.append('profileImage', uploadFile(asset.uri, asset.fileName, asset.mimeType, 'avatar'));
 
         try {
             await updateMe(form).unwrap();

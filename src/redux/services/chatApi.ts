@@ -1,4 +1,5 @@
 import { baseApi } from '../api/baseApi';
+import { uploadFile } from '@/lib/photoUpload';
 import type { ApiEnvelope, Paginated } from '../types';
 import type { PickedPhoto } from './accommodationApi';
 
@@ -60,6 +61,13 @@ export const chatApi = baseApi.injectEndpoints({
       providesTags: ['Chat'],
     }),
 
+    /** One conversation (same shape as an inbox item) — for the chat header. */
+    getConversation: builder.query<Conversation, string>({
+      query: (conversationId) => `/chat/conversations/${conversationId}`,
+      transformResponse: (res: ApiEnvelope<Conversation>) => res.data,
+      providesTags: ['Chat'],
+    }),
+
     getMessages: builder.query<
       Paginated<Message>,
       { conversationId: string; page?: number; limit?: number }
@@ -82,13 +90,7 @@ export const chatApi = baseApi.injectEndpoints({
         const form = new FormData();
         if (text) form.append('text', text);
         if (file) {
-          const name = file.name ?? file.uri.split('/').pop() ?? 'attachment.jpg';
-          const ext = name.split('.').pop()?.toLowerCase() ?? 'jpg';
-          form.append('file', {
-            uri: file.uri,
-            name,
-            type: file.type ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-          } as unknown as Blob);
+          form.append('file', uploadFile(file.uri, file.name, file.type, 'attachment'));
         }
         return { url: `/chat/${conversationId}/messages`, method: 'POST', body: form };
       },
@@ -132,13 +134,7 @@ export const chatApi = baseApi.injectEndpoints({
     uploadChatFile: builder.mutation<UploadedFile, PickedPhoto>({
       query: (file) => {
         const form = new FormData();
-        const name = file.name ?? file.uri.split('/').pop() ?? 'attachment.jpg';
-        const ext = name.split('.').pop()?.toLowerCase() ?? 'jpg';
-        form.append('file', {
-          uri: file.uri,
-          name,
-          type: file.type ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-        } as unknown as Blob);
+        form.append('file', uploadFile(file.uri, file.name, file.type, 'attachment'));
         return { url: '/chat/upload', method: 'POST', body: form };
       },
       transformResponse: (res: ApiEnvelope<UploadedFile>) => res.data,
@@ -150,6 +146,7 @@ export const chatApi = baseApi.injectEndpoints({
 export const {
   useStartConversationMutation,
   useGetConversationsQuery,
+  useGetConversationQuery,
   useGetMessagesQuery,
   useSendMessageMutation,
   useEditMessageMutation,

@@ -12,6 +12,7 @@ import {
     hasFloorAndElevator,
     keysText,
     roomsText,
+    usesKeyBox,
 } from '@/constants/accommodation';
 import { getApiErrorMessage } from '@/lib/apiError';
 
@@ -28,10 +29,17 @@ import {
 } from '@/redux/slices/accommodationDraftSlice';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+
+/** Step 4 fields: a problem with one of them is fixed on the previous screen. */
+const PRACTICAL_FIELDS = new Set(['keys', 'accessCode', 'doorCode', 'instructions', 'frequency', 'checkInTime', 'checkOutTime']);
+const PRACTICAL_PROBLEMS = new Set([
+    'Choose the check-in and check-out times.',
+    'The next guests must arrive after the departure time.',
+]);
 
 function SummaryCard({ title, children }: { title: string; children: React.ReactNode }) {
     return (
@@ -58,6 +66,8 @@ export default function AccommodationSummaryScreen() {
         useUpdateAccommodationMutation();
 
     const isSaving = isCreating || isUpdating;
+    // Kept on screen: a toast alone disappears before the host reads it.
+    const [saveError, setSaveError] = useState<{ message: string; practical: boolean } | null>(null);
 
     const SUMMARY = useMemo(
         () => ({
@@ -82,6 +92,7 @@ export default function AccommodationSummaryScreen() {
                 : IMAGE_COMPONENTS.apartment,
             practical: {
                 keys: keysText(draft.keys, t) || '—',
+                showAccessCode: usesKeyBox(draft.keys),
                 accessCode: draft.accessCode || '—',
                 instructions: draft.instructions || '—',
                 frequency: draft.frequency ? t(draft.frequency) : '—',
@@ -96,9 +107,11 @@ export default function AccommodationSummaryScreen() {
         if (isSaving) return;
         const problem = validateDraft(draft);
         if (problem) {
+            setSaveError({ message: t(problem), practical: PRACTICAL_PROBLEMS.has(problem) });
             showToast(t(problem), 'error');
             return;
         }
+        setSaveError(null);
 
         const body = buildAccommodationForm(draftToFields(draft), draft.photos);
 
@@ -123,10 +136,12 @@ export default function AccommodationSummaryScreen() {
                 } as any);
             }
         } catch (err) {
-            showToast(
-                getApiErrorMessage(err, t("Could not save the accommodation.")),
-                'error',
-            );
+            const message = getApiErrorMessage(err, t("Could not save the accommodation."));
+            // The backend names the field (`errorMessages[].path`): step 4
+            // fields get a direct way back to that step.
+            const path = (err as any)?.data?.errorMessages?.[0]?.path;
+            setSaveError({ message, practical: PRACTICAL_FIELDS.has(String(path)) });
+            showToast(message, 'error');
         }
     };
 
@@ -208,9 +223,11 @@ export default function AccommodationSummaryScreen() {
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
                         {t("Keys")}: {SUMMARY.practical.keys}
                     </Caption3>
-                    <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
-                        {t("Access code")}: {SUMMARY.practical.accessCode}
-                    </Caption3>
+                    {SUMMARY.practical.showAccessCode && (
+                        <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
+                            {t("Key box code")}: {SUMMARY.practical.accessCode}
+                        </Caption3>
+                    )}
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.infoText}>
                         {t("Instructions")}: {SUMMARY.practical.instructions}
                     </Caption3>
@@ -228,6 +245,21 @@ export default function AccommodationSummaryScreen() {
 
             {/* Footer */}
             <View style={styles.footer}>
+                {!!saveError && (
+                    <View style={styles.errorBox} accessibilityLiveRegion="polite">
+                        <Body5 color={Colors.COLOR_DANGER}>
+                            {draft.editingId ? t("Changes not saved") : t("Property not saved")}
+                        </Body5>
+                        <Caption3 color={Colors.PRIMARY_TEXT} style={{ marginTop: hp(4) }}>
+                            {saveError.message}
+                        </Caption3>
+                        {saveError.practical && (
+                            <Pressable onPress={() => router.back()} hitSlop={8} style={{ marginTop: hp(8) }}>
+                                <Caption2 color={"#1070B7"}>{t("Fix the practical information")}</Caption2>
+                            </Pressable>
+                        )}
+                    </View>
+                )}
                 <CustomButton
                     title={
                         isSaving
@@ -286,6 +318,14 @@ const styles = StyleSheet.create({
         height: hp(150),
         borderRadius: wp(8),
         marginTop: hp(4),
+    },
+    errorBox: {
+        alignSelf: 'stretch',
+        padding: wp(14),
+        borderRadius: wp(12),
+        backgroundColor: '#FF383C14',
+        borderWidth: 1,
+        borderColor: '#FF383C40',
     },
     footer: {
         paddingHorizontal: wp(20),

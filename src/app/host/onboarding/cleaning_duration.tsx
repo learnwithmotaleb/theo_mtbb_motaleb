@@ -3,6 +3,7 @@ import { Body5, Body6, Caption1, Caption3, H2 } from '@/components/typo/Typograp
 import { Colors } from '@/constants/theme';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
+import { durationToMinutes } from '@/lib/datetime';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -24,6 +25,12 @@ import SectionTitle from '@/components/shared/SectionTitle';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DURATION_OPTIONS = ['1h00', '1h30', '2h00', '2h30', '3h00', '3h30', '4h00', '4h30', '5h00'];
+
+/** 150 -> "2h30", matching an entry of DURATION_OPTIONS; not set -> null. */
+const minutesToOption = (minutes: number): string | null => {
+    if (!minutes || minutes <= 0) return null;
+    return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}`;
+};
 
 function DurationDropdown({
     value,
@@ -87,24 +94,26 @@ export default function CleaningDurationScreen() {
     const draft = useAppSelector((state) => state.accommodationDraft);
 
     const [duration, setDuration] = useState(
-        // The duration lives inside the cleaner-facing instructions.
-        /\d+h\d+/.exec(draft.instructions)?.[0] ?? '2h30',
+        minutesToOption(Number(draft.cleaningDuration)) ?? '2h30',
     );
     const [rate, setRate] = useState(draft.cleaningRate);
     const [rateError, setRateError] = useState('');
     const [isLoading] = useState(false);
 
     const handleContinue = () => {
-        if (!rate.trim() || Number.isNaN(Number(rate))) {
+        // French keypads type "25,50": the backend needs "25.50".
+        const normalizedRate = rate.trim().replace(',', '.');
+        if (!normalizedRate || Number.isNaN(Number(normalizedRate)) || Number(normalizedRate) < 0) {
             setRateError('Proposed rate is required');
             return;
         }
         setRateError('');
         dispatch(
             updateDraft({
-                cleaningRate: rate.trim(),
-                // There is no duration column; cleaners read it in the brief.
-                instructions: `Average cleaning duration: ${duration}`,
+                cleaningRate: normalizedRate,
+                // Saved as the accommodation's real `cleaningDuration` (minutes),
+                // which the cleaner's cards show as «Estimation : 2h30».
+                cleaningDuration: String(durationToMinutes(duration) ?? ''),
             }),
         );
         router.push('/host/onboarding/summary');

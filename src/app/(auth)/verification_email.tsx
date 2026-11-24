@@ -4,8 +4,8 @@ import { LeftAngleIcon } from '@/assets/icons/common_icon/LiftAngleIcon';
 import { CustomButton } from '@/components/shared/CustomButton';
 import CustomLoader from '@/components/shared/CustomLoader';
 import { StepIndicator } from '@/components/shared/StepIndicator';
-import Toast, { showToast } from '@/components/shared/Toast';
-import { Body6, Caption3, H1 } from '@/components/typo/Typography';
+import { showToast } from '@/components/shared/Toast';
+import { Body6, Body7, Caption3, H1 } from '@/components/typo/Typography';
 import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
 import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
@@ -27,6 +27,11 @@ import { fp, hp, wp } from '../../../utils/responsiveDevice';
 
 const OTP_LENGTH = 4;
 const RESEND_SECONDS = 60;
+
+// Warning-card palette for the spam notice (soft amber, per client mock-up).
+const SPAM_CARD_BG = '#FFF6E5';
+const SPAM_CARD_BORDER = '#FFD9A0';
+const SPAM_BODY_TEXT = '#5C4A2E';
 
 export default function VerificationEmailScreen() {
     const t = useT();
@@ -123,7 +128,6 @@ export default function VerificationEmailScreen() {
         <>
             <Stack.Screen options={{ headerShown: false }} />
             <SafeAreaView style={{ flex: 1, backgroundColor: Colors.APP_BACKGROUND }}>
-                <Toast />
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.root}
@@ -187,10 +191,20 @@ export default function VerificationEmailScreen() {
                                 </View>
                             </View>
 
-                            {/* Spam folder notice */}
-                            <Caption3 color={Colors.TEXT_COLOR} style={{ marginBottom: hp(16), textAlign: 'center', lineHeight: 18 }}>
-                                {t("If you don't receive the email, please check your spam or junk folder.")}
-                            </Caption3>
+                            {/* Spam folder notice — a highlighted card so it is not missed */}
+                            <View style={styles.spamCard} accessibilityRole="alert">
+                                <View style={styles.spamIcon}>
+                                    <Body7 color="#FFFFFF" style={styles.spamIconText}>!</Body7>
+                                </View>
+                                <View style={styles.spamTextWrapper}>
+                                    <Body7 color={Colors.PRIMARY_TEXT}>
+                                        {t("Didn't receive the email?")}
+                                    </Body7>
+                                    <Caption3 color={SPAM_BODY_TEXT} style={styles.spamBody}>
+                                        {t("Check your spam or junk folder. The email may have ended up there.")}
+                                    </Caption3>
+                                </View>
+                            </View>
 
                             {/* OTP boxes */}
                             <Caption3 color={Colors.PRIMARY_TEXT} style={styles.label}>
@@ -311,6 +325,30 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.INPUT_BACKGROUND,
     },
     emailIconWrapper: { marginRight: wp(10) },
+    spamCard: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        backgroundColor: SPAM_CARD_BG,
+        borderWidth: 1,
+        borderColor: SPAM_CARD_BORDER,
+        borderRadius: 14,
+        paddingHorizontal: wp(14),
+        paddingVertical: hp(12),
+        marginBottom: hp(20),
+        gap: wp(12),
+    },
+    spamIcon: {
+        width: wp(24),
+        height: wp(24),
+        borderRadius: wp(12),
+        backgroundColor: Colors.COLOR_ORANGE,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: hp(1),
+    },
+    spamIconText: { lineHeight: wp(20) },
+    spamTextWrapper: { flex: 1, gap: hp(3) },
+    spamBody: { lineHeight: 18 },
     emailValue: { flex: 1 },
     otpRow: {
         flexDirection: 'row',

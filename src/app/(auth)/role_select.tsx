@@ -5,8 +5,8 @@ import { HostAvtIcon } from '@/assets/icons/host_icon/HostAvtIcon';
 import { CustomButton } from '@/components/shared/CustomButton';
 import CustomLoader from '@/components/shared/CustomLoader';
 import { StepIndicator } from '@/components/shared/StepIndicator';
-import Toast, { showToast } from '@/components/shared/Toast';
-import { Body6, Caption3, H1, H3 } from '@/components/typo/Typography';
+import { showToast } from '@/components/shared/Toast';
+import { Body1, Caption3, H1 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useAppDispatch } from '@/redux/hooks';
@@ -20,25 +20,29 @@ import { hp, wp } from '../../../utils/responsiveDevice';
 
 type RoleType = 'host' | 'cleaner';
 
+// Light blue fill for the chosen option (client mock-up).
+const SELECTED_CARD_BG = '#EAF4FF';
+
 interface RoleOption {
     id: RoleType;
     title: string;
-    description: string;
     icon: React.ReactElement;
 }
+
+// Two simple options, title only (client request). To use the designer's
+// illustrations later, swap `icon` for <AppImage source={...} /> here.
+const ROLE_ICON_SIZE = wp(56);
 
 const ROLES: RoleOption[] = [
     {
         id: 'host',
         title: "I'm a host",
-        description: 'Choose your profile to get started',
-        icon: <HostAvtIcon />,
+        icon: <HostAvtIcon size={ROLE_ICON_SIZE} />,
     },
     {
         id: 'cleaner',
         title: "I'm a cleaner",
-        description: 'I organize my cleaning service',
-        icon: <CleanerAvtIcon />,
+        icon: <CleanerAvtIcon size={ROLE_ICON_SIZE} />,
     },
 ];
 
@@ -70,7 +74,6 @@ export default function RoleSelectScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.root}
             >
-                <Toast />
 
                 <View style={styles.topRow}>
                     <Pressable
@@ -98,7 +101,7 @@ export default function RoleSelectScreen() {
                             {t("How do you use Gestilo?")}
                         </H1>
                         <Caption3 color={Colors.TEXT_COLOR} style={styles.description}>
-                            {t("Choose your profile to get started")}
+                            {t("Choose your profile to continue")}
                         </Caption3>
 
                         {ROLES.map((role) => {
@@ -114,15 +117,16 @@ export default function RoleSelectScreen() {
                                             {isSelected && <View style={styles.radioDot} />}
                                         </View>
                                     </View>
-                                    <View style={styles.avatarCircle}>
+                                    <View style={[styles.avatarCircle, isSelected && styles.avatarCircleSelected]}>
                                         {role.icon}
                                     </View>
-                                    <H3 color={Colors.PRIMARY_TEXT} style={styles.cardTitle}>
+                                    <Body1
+                                        color={Colors.PRIMARY_TEXT}
+                                        align="center"
+                                        style={styles.cardTitle}
+                                    >
                                         {t(role.title)}
-                                    </H3>
-                                    <Body6 color={Colors.TEXT_COLOR} style={styles.cardDesc}>
-                                        {t(role.description)}
-                                    </Body6>
+                                    </Body1>
                                 </Pressable>
                             );
                         })}
@@ -174,27 +178,32 @@ const styles = StyleSheet.create({
     description: { marginBottom: hp(16) },
     card: {
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: Colors.INPUT_BACKGROUND,
         borderRadius: 16,
         borderWidth: 1.5,
         borderColor: Colors.BORDER_COLOR,
-        paddingVertical: hp(14),
-        paddingHorizontal: wp(16),
-        marginBottom: hp(12),
+        paddingVertical: hp(24),
+        // Wide side padding keeps the title clear of the radio button.
+        paddingHorizontal: wp(40),
+        marginBottom: hp(14),
     },
-    cardSelected: { borderColor: Colors.BRAND_PRIMARY },
+    cardSelected: {
+        borderColor: Colors.BRAND_PRIMARY,
+        backgroundColor: SELECTED_CARD_BG,
+    },
     radioWrapper: { position: 'absolute', top: hp(12), right: wp(12) },
     avatarCircle: {
-        width: wp(52),
-        height: wp(52),
-        borderRadius: wp(26),
+        width: wp(96),
+        height: wp(96),
+        borderRadius: wp(48),
         backgroundColor: '#EAF4FF',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: hp(8),
+        marginBottom: hp(14),
     },
-    cardTitle: { marginBottom: hp(2), fontWeight: '500' },
-    cardDesc: { textAlign: 'center' },
+    avatarCircleSelected: { backgroundColor: '#FFFFFF' },
+    cardTitle: { alignSelf: 'stretch' },
     radio: {
         width: wp(18),
         height: wp(18),

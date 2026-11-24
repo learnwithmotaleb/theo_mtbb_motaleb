@@ -1,4 +1,5 @@
 import { baseApi } from '../api/baseApi';
+import { uploadFile } from '@/lib/photoUpload';
 import type { Accommodation, ApiEnvelope, Paginated } from '../types';
 
 /** Common list query params for the host listing endpoints. */
@@ -130,6 +131,9 @@ export interface PickedPhoto {
   type?: string;
 }
 
+/** Sent even when empty, so a PATCH can clear what was saved before. */
+const CLEARABLE_FIELDS = new Set(['accessCode']);
+
 export const buildAccommodationForm = (
   fields: Record<string, unknown>,
   photos: PickedPhoto[] = [],
@@ -137,7 +141,8 @@ export const buildAccommodationForm = (
   const form = new FormData();
 
   Object.entries(fields).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === '') return;
+    if (value === undefined || value === null) return;
+    if (value === '' && !CLEARABLE_FIELDS.has(key)) return;
     if (Array.isArray(value)) {
       value.forEach((v) => form.append(key, String(v)));
     } else {
@@ -146,13 +151,7 @@ export const buildAccommodationForm = (
   });
 
   photos.forEach((photo, index) => {
-    const name = photo.name ?? photo.uri.split('/').pop() ?? `photo-${index}.jpg`;
-    const ext = name.split('.').pop()?.toLowerCase() ?? 'jpg';
-    form.append('photos', {
-      uri: photo.uri,
-      name,
-      type: photo.type ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-    } as unknown as Blob);
+    form.append('photos', uploadFile(photo.uri, photo.name, photo.type, `photo-${index}`));
   });
 
   return form;

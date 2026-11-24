@@ -1,7 +1,9 @@
 import AnimatedSplash from '@/components/AnimatedSplash';
 import { LocaleProvider } from '@/components/shared/LocaleProvider';
 import Toast from '@/components/shared/Toast';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useSessionBootstrap } from '@/hooks/useSession';
+import { initPush } from '@/lib/push';
 import { store } from '@/redux/store';
 import {
     Poppins_400Regular,
@@ -16,7 +18,8 @@ import {
     useFonts,
 } from '@expo-google-fonts/poppins';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router/react-navigation';
-import { StripeProvider } from '@stripe/stripe-react-native';
+import { StripeProvider, useStripe } from '@stripe/stripe-react-native';
+import * as Linking from 'expo-linking';
 import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useRef, useState } from 'react';
@@ -24,19 +27,33 @@ import { useColorScheme, View } from 'react-native';
 import { Provider } from 'react-redux';
 
 SplashScreen.preventAutoHideAsync();
+// OneSignal must start before the first render to catch a tap that launched the app.
+initPush();
 
 // Render errors anywhere below show a recovery screen instead of closing the app.
 export { AppErrorBoundary as ErrorBoundary } from '@/components/shared/AppErrorBoundary';
 
 function RootLayoutNav() {
+    // Card payments with 3-D Secure come back through gestlio://stripe-redirect;
+    // Stripe's SDK must see that URL to finish the payment.
+    const { handleURLCallback } = useStripe();
+    useEffect(() => {
+        const sub = Linking.addEventListener('url', ({ url }) => {
+            if (url.includes('stripe-redirect')) handleURLCallback(url);
+        });
+        return () => sub.remove();
+    }, [handleURLCallback]);
+
     const colorScheme = useColorScheme();
     const [showAnimatedSplash, setShowAnimatedSplash] = useState(false);
     // The splash animation and the session restore run at the same time; we
     // navigate only once both have finished, so the first screen is final.
     const [splashDone, setSplashDone] = useState(false);
     const hasNavigated = useRef(false);
+    const [navReady, setNavReady] = useState(false);
 
     const { isBootstrapped, isAuthenticated, homeRoute } = useSessionBootstrap();
+    usePushNotifications(navReady);
 
     const [fontsLoaded, fontError] = useFonts({
         Poppins_400Regular,
@@ -64,6 +81,7 @@ function RootLayoutNav() {
         hasNavigated.current = true;
         setShowAnimatedSplash(false);
         router.replace((isAuthenticated ? homeRoute : '/(auth)/login') as never);
+        setNavReady(true);
     }, [splashDone, isBootstrapped, isAuthenticated, homeRoute]);
 
     if (!fontsLoaded && !fontError) return null;
@@ -99,6 +117,7 @@ export default function RootLayout() {
              */}
             <StripeProvider
                 publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}
+                urlScheme="gestlio"
             >
                 <LocaleProvider>
                     <RootLayoutNav />

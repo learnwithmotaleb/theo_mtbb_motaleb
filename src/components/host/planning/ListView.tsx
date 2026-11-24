@@ -13,6 +13,7 @@ import { ListEvent, PLATFORM_COLORS } from '@/types/planningTypes';
 import { AppImage } from '@/components/shared/AppImage';
 import { showToast } from '@/components/shared/Toast';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { toDateKey } from '@/lib/datetime';
 import { useDeleteScheduleMutation } from '@/redux/services/scheduleApi';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -59,6 +60,22 @@ export function ListView({
     const [selectedEvent, setSelectedEvent] = useState<ListEvent | null>(null);
     const [deleteSchedule, { isLoading: isCancelling }] = useDeleteScheduleMutation();
 
+    const todayKey = toDateKey(new Date());
+    const isPastRow = (item: ListEvent) => Boolean(item.cleaningDate && item.cleaningDate < todayKey);
+
+    // Opens the scheduling page with the guest's check-out day preselected.
+    // A past check-out can no longer receive a cleaning.
+    const scheduleFor = (item: ListEvent) => {
+        if (isPastRow(item)) {
+            showToast(t('This date has passed.'), 'info');
+            return;
+        }
+        router.push({
+            pathname: '/host/home/schedule_cleaning',
+            params: { accommodationId, ...(item.cleaningDate ? { date: item.cleaningDate } : {}) },
+        } as any);
+    };
+
     const handleRowPress = (item: ListEvent) => {
         if (item.scheduleId) {
             // A cleaning exists → offer to cancel it
@@ -66,7 +83,7 @@ export function ListView({
             setCancelVisible(true);
         } else {
             // No cleaning yet → navigate to schedule creation
-            router.push({ pathname: '/host/home/schedule_cleaning', params: { accommodationId } } as any);
+            scheduleFor(item);
         }
     };
 
@@ -149,13 +166,11 @@ export function ListView({
                                         style={styles.cleanerAvatar}
                                         contentFit="cover"
                                     />
-                                ) : (
+                                ) : isPastRow(item) ? null : (
                                     // No cleaning yet → show + button to schedule one
                                     <Pressable
                                         style={styles.plusCircle}
-                                        onPress={() =>
-                                            router.push({ pathname: '/host/home/schedule_cleaning', params: { accommodationId } } as any)
-                                        }
+                                        onPress={() => scheduleFor(item)}
                                     >
                                         <PlusIcon color={Colors.COLOR_ACTIVE} />
                                     </Pressable>

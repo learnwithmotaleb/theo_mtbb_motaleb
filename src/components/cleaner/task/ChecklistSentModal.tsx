@@ -24,7 +24,7 @@ export function ChecklistSentModal({ visible, onClose }: Props) {
                         <Body5 color="#fff" style={{ fontSize: 28 }}>✓</Body5>
                     </View>
                     <Body5 color={Colors.PRIMARY_TEXT} align="center" style={{ marginTop: hp(12) }}>
-                        {t("Checklist Sent")}
+                        {t("Proof sent")}
                     </Body5>
                     <Caption3 color={Colors.TEXT_COLOR} align="center" style={{ marginBottom: hp(16) }}>
                         {t("Waiting for host approval")}

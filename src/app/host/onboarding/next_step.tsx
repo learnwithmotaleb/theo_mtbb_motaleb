@@ -5,7 +5,7 @@ import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { Body5, Body6, H2 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
-import { useRouter } from 'expo-router';
+import { useGoToRoleHome } from '@/hooks/useSession';
 import React, { useState } from 'react';
 import {
     ScrollView,
@@ -36,12 +36,12 @@ const nextSteps = (t: Translate) => [
 
 export default function AndNextScreen() {
     const t = useT();
-    const router = useRouter();
+    const goToRoleHome = useGoToRoleHome();
     const [isLoading] = useState(false);
 
-    // replace, so the back gesture cannot walk back into the wizard.
+    // Clears the wizard, so the back gesture cannot walk back into it.
     const handleContinue = () => {
-        router.replace('/host/(tabs)/housing' as any);
+        goToRoleHome('/host/(tabs)/housing');
     };
 
     return (

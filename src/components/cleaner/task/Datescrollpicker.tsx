@@ -2,9 +2,17 @@ import { LeftAngleIcon } from '@/assets/icons/common_icon/LiftAngleIcon';
 import { RightAngleIcon } from '@/assets/icons/common_icon/RightAngleIcon';
 import { Body4, Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
-import { useIntlLocale } from '@/i18n';
-import React, { useEffect, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useIntlLocale, useT } from '@/i18n';
+import { formatDayKey } from '@/lib/datetime';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    NativeScrollEvent,
+    NativeSyntheticEvent,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from 'react-native';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
 // ISO string: "2026-05-15"
@@ -31,59 +39,82 @@ function getRangeDates(baseDate: Date, monthsBefore = 1, monthsAhead = 12): Date
 interface DateScrollPickerProps {
     selectedDate: string;         // "2026-05-15"
     onSelectDate: (date: string) => void;
-    /** কোন dates এ task আছে — dot দেখানোর জন্য (optional) */
+    /** Dates that have at least one mission — shown with a dot. */
     activeDates?: string[];
+    /** "YYYY-MM" of the dates currently on screen (changes while scrolling). */
+    onVisibleMonthChange?: (month: string) => void;
 }
 
 export function DateScrollPicker({
     selectedDate,
     onSelectDate,
     activeDates = [],
+    onVisibleMonthChange,
 }: DateScrollPickerProps) {
+    const t = useT();
     const scrollRef = useRef<ScrollView>(null);
     const locale = useIntlLocale();
 
     const today = useMemo(() => new Date(), []);
-    const selDate = useMemo(() => {
-        return selectedDate
-            ? new Date(selectedDate + 'T00:00:00')
-            : today;
-    }, [selectedDate, today]);
+    const todayISO = toISO(today);
 
     // Continuous date range: from 1 month before current month up to 12 months ahead
-    const dates = useMemo(() => {
-        return getRangeDates(today, 1, 12);
-    }, [today]);
+    const dates = useMemo(() => getRangeDates(today, 1, 12), [today]);
+    const isoDates = useMemo(() => dates.map(toISO), [dates]);
 
-    // selected date এর index
-    const selectedIndex = dates.findIndex(
-        (d) => toISO(d) === selectedDate
+    const selectedIndex = isoDates.indexOf(selectedDate);
+
+    // The header follows what is on screen, not only the tapped day: scrolling
+    // into December shows "Décembre 2026" without touching the arrows.
+    const [visibleMonth, setVisibleMonth] = useState(
+        (selectedDate || todayISO).slice(0, 7),
     );
 
-    const monthTitle = useMemo(() => {
-        const str = selDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-        return str.charAt(0).toUpperCase() + str.slice(1);
-    }, [selDate, locale]);
+    const visibleMonthRef = useRef(visibleMonth);
+    const updateVisibleMonth = useCallback(
+        (month: string) => {
+            if (visibleMonthRef.current === month) return;
+            visibleMonthRef.current = month;
+            setVisibleMonth(month);
+            onVisibleMonthChange?.(month);
+        },
+        [onVisibleMonthChange],
+    );
 
-    const handlePrevMonth = () => {
-        const d = new Date(selDate.getFullYear(), selDate.getMonth() - 1, 1);
-        onSelectDate(toISO(d));
+    const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        // The month of the day at the left edge (first fully visible chip).
+        const index = Math.min(
+            isoDates.length - 1,
+            Math.max(0, Math.round(e.nativeEvent.contentOffset.x / (CHIP_WIDTH + GAP))),
+        );
+        updateVisibleMonth(isoDates[index].slice(0, 7));
     };
 
-    const handleNextMonth = () => {
-        const d = new Date(selDate.getFullYear(), selDate.getMonth() + 1, 1);
-        onSelectDate(toISO(d));
+    const monthTitle = useMemo(() => {
+        const str = formatDayKey(`${visibleMonth}-01`, { month: 'long', year: 'numeric' }, locale);
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }, [visibleMonth, locale]);
+
+    // Arrows move from the month on screen; never outside the strip's range.
+    const jumpMonth = (delta: number) => {
+        const [y, m] = visibleMonth.split('-').map(Number);
+        const target = toISO(new Date(y, m - 1 + delta, 1));
+        const first = isoDates[0];
+        const last = isoDates[isoDates.length - 1];
+        if (target > last) return;
+        onSelectDate(target < first ? first : target);
     };
 
     // mount or selected date changes -> scroll to selected date
     useEffect(() => {
         if (selectedIndex >= 0 && scrollRef.current) {
-            setTimeout(() => {
+            const timer = setTimeout(() => {
                 scrollRef.current?.scrollTo({
                     x: Math.max(0, selectedIndex * (CHIP_WIDTH + GAP) - wp(20)),
                     animated: true,
                 });
             }, 100);
+            return () => clearTimeout(timer);
         }
     }, [selectedIndex]);
 
@@ -92,10 +123,10 @@ export function DateScrollPicker({
             <View style={styles.monthHeader}>
                 <Pressable
                     style={styles.navBtn}
-                    onPress={handlePrevMonth}
+                    onPress={() => jumpMonth(-1)}
                     hitSlop={12}
                     accessibilityRole="button"
-                    accessibilityLabel="Previous month"
+                    accessibilityLabel={t("Previous month")}
                 >
                     <LeftAngleIcon size={16} color={Colors.PRIMARY_TEXT} />
                 </Pressable>
@@ -104,10 +135,10 @@ export function DateScrollPicker({
                 </Body4>
                 <Pressable
                     style={styles.navBtn}
-                    onPress={handleNextMonth}
+                    onPress={() => jumpMonth(1)}
                     hitSlop={12}
                     accessibilityRole="button"
-                    accessibilityLabel="Next month"
+                    accessibilityLabel={t("Next month")}
                 >
                     <RightAngleIcon size={16} color={Colors.PRIMARY_TEXT} />
                 </Pressable>
@@ -118,38 +149,65 @@ export function DateScrollPicker({
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.scroll}
+                onScroll={handleScroll}
+                scrollEventThrottle={32}
             >
-                {dates.map((date) => {
-                    const iso = toISO(date);
+                {dates.map((date, index) => {
+                    const iso = isoDates[index];
                     const isSelected = iso === selectedDate;
+                    const isToday = iso === todayISO;
+                    // Past days stay tappable (mission history) but read as past.
+                    const isPast = iso < todayISO;
                     const hasTask = activeDates.includes(iso);
+
+                    const mutedText = isPast ? Colors.PLACEHOLDER_TEXT : Colors.TEXT_COLOR;
+                    const mainText = isPast ? Colors.PLACEHOLDER_TEXT : Colors.PRIMARY_TEXT;
 
                     return (
                         <Pressable
                             key={iso}
-                            style={[styles.chip, isSelected && styles.chipActive]}
+                            style={[
+                                styles.chip,
+                                isPast && styles.chipPast,
+                                isToday && styles.chipToday,
+                                isSelected && styles.chipActive,
+                            ]}
                             onPress={() => onSelectDate(iso)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: isSelected }}
                         >
-                            {/* Day name */}
+                            {/* Day name — "Auj." on today */}
                             <Caption4
-                                color={isSelected ? Colors.TEXT_WHITE : Colors.TEXT_COLOR}
+                                color={
+                                    isSelected
+                                        ? Colors.TEXT_WHITE
+                                        : isToday
+                                            ? Colors.COLOR_ACTIVE
+                                            : mutedText
+                                }
                             >
-                                {date.toLocaleDateString(locale, { weekday: 'short' })}
+                                {isToday
+                                    ? t("Today (short)")
+                                    : formatDayKey(iso, { weekday: 'short' }, locale)}
                             </Caption4>
 
                             {/* Day number */}
                             <Caption3
-                                color={isSelected ? Colors.TEXT_WHITE : Colors.PRIMARY_TEXT}
+                                color={
+                                    isSelected
+                                        ? Colors.TEXT_WHITE
+                                        : isToday
+                                            ? Colors.COLOR_ACTIVE
+                                            : mainText
+                                }
                                 style={styles.dayNum}
                             >
                                 {date.getDate()}
                             </Caption3>
 
                             {/* Month name */}
-                            <Caption4
-                                color={isSelected ? Colors.TEXT_WHITE : Colors.TEXT_COLOR}
-                            >
-                                {date.toLocaleDateString(locale, { month: 'short' })}
+                            <Caption4 color={isSelected ? Colors.TEXT_WHITE : mutedText}>
+                                {formatDayKey(iso, { month: 'short' }, locale)}
                             </Caption4>
 
                             {/* Task dot */}
@@ -157,7 +215,13 @@ export function DateScrollPicker({
                                 <View
                                     style={[
                                         styles.dot,
-                                        { backgroundColor: isSelected ? Colors.TEXT_WHITE : Colors.BRAND_PRIMARY },
+                                        {
+                                            backgroundColor: isSelected
+                                                ? Colors.TEXT_WHITE
+                                                : isPast
+                                                    ? Colors.PLACEHOLDER_TEXT
+                                                    : Colors.BRAND_PRIMARY,
+                                        },
                                     ]}
                                 />
                             )}
@@ -211,6 +275,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: hp(2),
+    },
+    // Past days: greyed out, so upcoming ones stand out.
+    chipPast: {
+        backgroundColor: '#F1F1F1',
+        borderColor: 'transparent',
+        opacity: 0.7,
+    },
+    // Today: green outline.
+    chipToday: {
+        borderColor: Colors.COLOR_ACTIVE,
+        borderWidth: 2,
     },
     chipActive: {
         backgroundColor: Colors.PRIMARY_TEXT,

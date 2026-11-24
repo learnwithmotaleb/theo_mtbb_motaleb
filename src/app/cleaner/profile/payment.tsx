@@ -1,37 +1,91 @@
 import { SkeletonText } from '@/components/shared/Skeleton';
 import { useT } from '@/i18n';
 import { BankIcon } from '@/assets/icons/cleaner_icon/BankIcon';
-import { CopyIcon } from '@/assets/icons/cleaner_icon/CopyIcon';
-import { EditPenIcon } from '@/assets/icons/common_icon/EditPenIcon';
-import { StepIndecatorFillIcon } from '@/assets/icons/common_icon/StepIndecatorFillIcon';
+import { ShieldCheckIcon } from '@/assets/icons/common_icon/ShieldCheckIcon';
 import { InfoIcon } from '@/assets/icons/host_icon/InfoIcon';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { showToast } from '@/components/shared/Toast';
-import { Body5, Body6, Caption2, Caption3, Caption5 } from '@/components/typo/Typography';
+import { Body5, Body6, Caption2, Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
+import { formatDate } from '@/lib/datetime';
 import { personName } from '@/lib/mappers';
 import { useCurrentUser } from '@/redux/hooks';
 import {
+    ConnectState,
+    ConnectStatus,
     useCreateConnectAccountMutation,
     useGetConnectStatusQuery,
 } from '@/redux/services/paymentApi';
-import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
-import React from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useCallback } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
-function CopyField({ label, value }: { label: string; value: string }) {
+/** Where Stripe's return page sends the cleaner back (see backend /stripe/connect/return). */
+const PAYOUT_RETURN_URL = 'gestlio://payouts/return';
+
+type Tone = { bg: string; fg: string };
+
+const TONES: Record<ConnectState, Tone> = {
+    not_started: { bg: '#8F8F8F1A', fg: Colors.TEXT_COLOR },
+    incomplete: { bg: '#FF8D281A', fg: '#B35A00' },
+    pending_verification: { bg: '#0088FF14', fg: Colors.BRAND_PRIMARY },
+    restricted: { bg: '#FF383C14', fg: Colors.COLOR_DANGER },
+    active: { bg: '#22C55E1A', fg: Colors.SUCCESS_COLOR },
+};
+
+const STATE_LABEL: Record<ConnectState, string> = {
+    not_started: 'Not started',
+    incomplete: 'To complete',
+    pending_verification: 'Being verified by Stripe',
+    restricted: 'Blocked: contact support',
+    active: 'Active',
+};
+
+const STATE_TEXT: Record<ConnectState, string> = {
+    not_started: 'You have not set up your payouts yet. It takes about 5 minutes.',
+    incomplete: 'Some information is still missing. Continue where you left off.',
+    pending_verification: 'Stripe is checking your information. This usually takes a few minutes, sometimes up to 2 days.',
+    restricted: 'Stripe has suspended your payouts. Complete your file or contact Gestlio support.',
+    active: 'Your payouts are active. Payments for validated cleanings are sent to your bank account.',
+};
+
+const BUTTON_LABEL: Record<ConnectState, string> = {
+    not_started: 'Set up my payouts with Stripe',
+    incomplete: 'Continue setup',
+    pending_verification: 'View my Stripe file',
+    restricted: 'Complete my file',
+    active: 'Update my bank details',
+};
+
+/** Older backends only send the booleans; derive the same states from them. */
+function connectState(status?: ConnectStatus): ConnectState {
+    if (status?.status) return status.status;
+    if (status?.onboarded) return 'active';
+    if (status?.detailsSubmitted) return 'pending_verification';
+    return 'not_started';
+}
+
+/** Backend sends an ISO 8601 string (or null); Unix seconds/ms tolerated too. */
+function deadlineText(value?: number | string | null): string {
+    if (value === null || value === undefined || value === '') return '';
+    const n = Number(value);
+    if (Number.isFinite(n)) return formatDate(new Date(n < 1e12 ? n * 1000 : n));
+    return formatDate(String(value));
+}
+
+function Step({ index, title, text }: { index: number; title: string; text: string }) {
     return (
-        <View style={ribStyles.fieldBlock}>
-            <Caption3 color={Colors.TEXT_COLOR}>{label}</Caption3>
-            <View style={ribStyles.fieldRow}>
-                <Body6 color={Colors.PRIMARY_TEXT} style={{ flex: 1 }}>{value}</Body6>
-                <Pressable onPress={() => Clipboard.setStringAsync(value)} hitSlop={8}>
-                    <CopyIcon size={18} color={Colors.TEXT_COLOR} />
-                </Pressable>
+        <View style={ribStyles.stepRow}>
+            <View style={ribStyles.stepNum}>
+                <Caption2 color={Colors.BRAND_PRIMARY}>{index}</Caption2>
+            </View>
+            <View style={{ flex: 1 }}>
+                <Body6 color={Colors.PRIMARY_TEXT}>{title}</Body6>
+                <Caption3 color={Colors.TEXT_COLOR} style={{ marginTop: hp(2) }}>{text}</Caption3>
             </View>
         </View>
     );
@@ -41,22 +95,37 @@ export default function CleanerPaymentScreen() {
     const t = useT();
     const me = useCurrentUser();
 
-    // Payouts run through Stripe Connect: the cleaner completes Stripe's own
-    // hosted onboarding, and the backend mirrors the resulting state here.
-    const { data: status, isLoading, refetch } = useGetConnectStatusQuery();
+    // Payouts run through Stripe Connect (Express): the cleaner completes
+    // Stripe's hosted onboarding, and the backend mirrors the state here.
+    // Always re-read on open: the cleaner may come back from Stripe through
+    // gestlio://payouts/return rather than the auth session closing.
+    const { data: status, isLoading, refetch } = useGetConnectStatusQuery(undefined, {
+        refetchOnMountOrArgChange: true,
+    });
+
+    useFocusEffect(
+        useCallback(() => {
+            refetch();
+        }, [refetch]),
+    );
     const [createConnectAccount, { isLoading: isStarting }] =
         useCreateConnectAccountMutation();
 
-    const onboarded = status?.onboarded ?? false;
+    const state = connectState(status);
+    const tone = TONES[state];
+    const missingCount = status?.requirementsDue?.length ?? 0;
+    const deadline = deadlineText(status?.currentDeadline);
 
     const handleSetupPayouts = async () => {
         try {
+            // Gestlio is a French service: Stripe needs FR to default to +33,
+            // euros and the IBAN form. The backend falls back to FR as well.
             const { url } = await createConnectAccount({
-                country: (me?.country as string) || undefined,
+                country: (me?.country as string) || 'FR',
             }).unwrap();
-            // Stripe hosts the form; when the browser closes we re-read the
-            // status rather than trusting the redirect.
-            await WebBrowser.openBrowserAsync(url);
+            // The auth session closes itself when Stripe's return page opens
+            // gestlio://payouts/return. Re-read the status either way.
+            await WebBrowser.openAuthSessionAsync(url, PAYOUT_RETURN_URL);
             refetch();
         } catch (err) {
             showToast(getApiErrorMessage(err, t("Could not start payout setup.")), 'error');
@@ -78,78 +147,113 @@ export default function CleanerPaymentScreen() {
                             {t("Receive your payment into your bank account")}
                         </Body5>
                         <Caption3 color={Colors.TEXT_COLOR} style={{ marginTop: hp(4) }}>
-                            {t("Add and manage your bank account securely")}
+                            {t("Hosts pay for each cleaning through Gestlio. The money is sent to your bank account once the cleaning is validated.")}
                         </Caption3>
                     </View>
                 </View>
 
-                {/* Stripe explanation / security banner */}
+                {/* Stripe, explained before the cleaner is sent there */}
                 <View style={ribStyles.stripeBanner}>
                     <View style={ribStyles.stripeIconWrapper}>
-                        <BankIcon size={20} color={Colors.BRAND_PRIMARY} />
+                        <ShieldCheckIcon size={20} color={Colors.BRAND_PRIMARY} />
                     </View>
                     <View style={{ flex: 1 }}>
                         <Caption2 color={Colors.PRIMARY_TEXT}>
-                            {t("Secure payments via Stripe")}
+                            {t("Gestlio uses Stripe for secure payments")}
                         </Caption2>
                         <Caption3 color={Colors.TEXT_COLOR} style={{ marginTop: hp(4) }}>
-                            {t("To receive payments from hosts safely, Gestlio uses Stripe. Click the button below to create or connect your Stripe account, provide your bank details, and start receiving your payouts.")}
+                            {t("Stripe is our payment partner, used by millions of businesses. To receive your payouts, the law requires Stripe to verify your identity and your bank account. Your information is held by Stripe, never by Gestlio.")}
                         </Caption3>
                     </View>
                 </View>
 
-                {/* Payout account */}
+                {/* Status */}
                 <View style={ribStyles.card}>
-                    <View style={ribStyles.primaryBadge}>
-                        <View style={ribStyles.badgeCheck}>
-                            <StepIndecatorFillIcon color={onboarded ? '#34C759' : '#8E8E93'} />
-                        </View>
-                        <Caption3 color={Colors.TEXT_COLOR}>
-                            {onboarded ? t("PAYOUTS ACTIVE") : t("PAYOUTS NOT SET UP")}
-                        </Caption3>
-                    </View>
-
-                    <Caption2 color={Colors.PRIMARY_TEXT} style={{ marginTop: hp(12) }}>
-                        {t("My payout account")}
-                    </Caption2>
-
-                    <Caption5 color={Colors.TEXT_COLOR} style={{ marginTop: hp(8) }}>
-                        {t("Account holder:")}
-                    </Caption5>
-                    <Body5 color={Colors.TEXT_COLOR}>{personName(me, 'You')}</Body5>
-
                     {isLoading ? (
-                        <SkeletonText lines={4} />
+                        <SkeletonText lines={3} />
                     ) : (
                         <>
-                            <CopyField
-                                label={t("Details submitted")}
-                                value={status?.detailsSubmitted ? t("Yes") : t("No")}
-                            />
-                            <CopyField
-                                label={t("Payouts enabled")}
-                                value={status?.payoutsEnabled ? t("Yes") : t("No")}
-                            />
+                            <View style={[ribStyles.statusBadge, { backgroundColor: tone.bg }]}>
+                                <View style={[ribStyles.statusDot, { backgroundColor: tone.fg }]} />
+                                <Caption2 color={tone.fg}>{t(STATE_LABEL[state])}</Caption2>
+                            </View>
+
+                            <Caption2 color={Colors.PRIMARY_TEXT} style={{ marginTop: hp(12) }}>
+                                {t("My payout account")}
+                            </Caption2>
+                            <Caption3 color={Colors.TEXT_COLOR} style={{ marginTop: hp(4) }}>
+                                {t(STATE_TEXT[state])}
+                            </Caption3>
+
+                            <View style={ribStyles.infoRow}>
+                                <Caption3 color={Colors.TEXT_COLOR}>{t("Account holder:")}</Caption3>
+                                <Body6 color={Colors.PRIMARY_TEXT}>{personName(me, 'You')}</Body6>
+                            </View>
+                            {!!status?.bankLast4 && (
+                                <View style={ribStyles.infoRow}>
+                                    <Caption3 color={Colors.TEXT_COLOR}>{t("Bank account")}</Caption3>
+                                    <Body6 color={Colors.PRIMARY_TEXT}>IBAN •••• {status.bankLast4}</Body6>
+                                </View>
+                            )}
+                            {state === 'incomplete' && missingCount > 0 && (
+                                <View style={ribStyles.infoRow}>
+                                    <Caption3 color={Colors.TEXT_COLOR}>{t("Missing information")}</Caption3>
+                                    <Body6 color={Colors.PRIMARY_TEXT}>{missingCount}</Body6>
+                                </View>
+                            )}
+                            {!!deadline && state !== 'active' && (
+                                <View style={ribStyles.infoRow}>
+                                    <Caption3 color={Colors.TEXT_COLOR}>{t("To complete before")}</Caption3>
+                                    <Body6 color={Colors.PRIMARY_TEXT}>{deadline}</Body6>
+                                </View>
+                            )}
                         </>
                     )}
 
                     <Pressable
-                        style={ribStyles.modifyBtn}
+                        style={[
+                            ribStyles.primaryBtn,
+                            state === 'active' && ribStyles.secondaryBtn,
+                            isStarting && { opacity: 0.6 },
+                        ]}
                         onPress={handleSetupPayouts}
-                        disabled={isStarting}
+                        disabled={isStarting || isLoading}
+                        accessibilityRole="button"
                     >
-                        <EditPenIcon size={16} color={Colors.TEXT_COLOR} />
-                        <Body6 color={Colors.TEXT_COLOR}>
-                            {isStarting
-                                ? t("Opening...")
-                                : onboarded
-                                  ? t("Update my payout details")
-                                  : t("Set up payouts")}
+                        <Body6 color={state === 'active' ? Colors.PRIMARY_TEXT : Colors.TEXT_WHITE}>
+                            {isStarting ? t("Opening...") : t(BUTTON_LABEL[state])}
                         </Body6>
                     </Pressable>
+                    <Caption3 color={Colors.TEXT_COLOR} style={ribStyles.redirectNote}>
+                        {t("You will be redirected to Stripe's secure page, then brought back to Gestlio automatically.")}
+                    </Caption3>
                 </View>
 
-                {/* Why add a RIB info card */}
+                {/* What to prepare */}
+                {state !== 'active' && (
+                    <View style={ribStyles.card}>
+                        <Caption2 color={Colors.PRIMARY_TEXT}>
+                            {t("What you will need (about 5 minutes)")}
+                        </Caption2>
+                        <Step
+                            index={1}
+                            title={t("Your contact details")}
+                            text={t("Email and mobile number (+33). We fill in what we already know.")}
+                        />
+                        <Step
+                            index={2}
+                            title={t("Your identity and address")}
+                            text={t("Date of birth, home address and, if Stripe asks, a photo of your ID card or passport.")}
+                        />
+                        <Step
+                            index={3}
+                            title={t("Your bank details (IBAN)")}
+                            text={t("The IBAN shown on your RIB, starting with FR76. This is where your payouts are sent.")}
+                        />
+                    </View>
+                )}
+
+                {/* Why */}
                 <View style={ribStyles.infoCard}>
                     <View style={ribStyles.infoIconWrapper}>
                         <InfoIcon size={18} color={Colors.TEXT_COLOR} />
@@ -159,7 +263,7 @@ export default function CleanerPaymentScreen() {
                             {t("Why set up payouts?")}
                         </Caption2>
                         <Caption3 color={Colors.TEXT_COLOR} style={{ marginTop: hp(4) }}>
-                            {t("Hosts pay into escrow and the money is released to you once a cleaning is validated. Until payouts are set up, hosts cannot pay for your missions. Your bank details are held securely by Stripe, never by this app.")}
+                            {t("Hosts pay into escrow and the money is released to you once a cleaning is validated. Until payouts are set up, hosts cannot pay for your missions.")}
                         </Caption3>
                     </View>
                 </View>
@@ -198,51 +302,60 @@ const ribStyles = StyleSheet.create({
         padding: wp(16),
         marginBottom: hp(16),
     },
-    primaryBadge: {
+
+
+    // Status
+    statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: wp(6),
         alignSelf: 'flex-start',
-        // borderWidth: 1,
-        // borderColor: Colors.BORDER_COLOR,
         borderRadius: wp(20),
         paddingHorizontal: wp(10),
         paddingVertical: hp(4),
-        backgroundColor: "#8F8F8F1A"
     },
-    badgeCheck: {
-        width: wp(16), height: wp(16),
-        borderRadius: wp(8),
-        backgroundColor: Colors.BORDER_COLOR,
-        alignItems: 'center', justifyContent: 'center',
-    },
-
-    // Fields
-    fieldBlock: { marginTop: hp(16) },
-    fieldRow: {
+    statusDot: { width: wp(8), height: wp(8), borderRadius: wp(4) },
+    infoRow: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: hp(6),
-        padding: wp(12),
-        backgroundColor: "#8F8F8F1A",
-        borderRadius: wp(10),
-        borderWidth: 1,
-        borderColor: Colors.BORDER_COLOR,
+        gap: wp(12),
+        marginTop: hp(12),
+        paddingTop: hp(12),
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: Colors.BORDER_COLOR,
     },
-
-    // Modify button
-    modifyBtn: {
-        flexDirection: 'row',
+    primaryBtn: {
         alignItems: 'center',
         justifyContent: 'center',
-        gap: wp(8),
-        marginTop: hp(16),
+        marginTop: hp(18),
         padding: hp(14),
-        backgroundColor: "#8F8F8F1A",
-        borderRadius: wp(10),
+        backgroundColor: Colors.BRAND_PRIMARY,
+        borderRadius: wp(100),
+    },
+    secondaryBtn: {
+        backgroundColor: '#8F8F8F1A',
         borderWidth: 1,
         borderColor: Colors.BORDER_COLOR,
     },
+    redirectNote: { marginTop: hp(8), textAlign: 'center' },
+
+    // Steps
+    stepRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: wp(12),
+        marginTop: hp(14),
+    },
+    stepNum: {
+        width: wp(26),
+        height: wp(26),
+        borderRadius: wp(13),
+        backgroundColor: '#0088FF14',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+
 
     // Info card
     infoCard: {

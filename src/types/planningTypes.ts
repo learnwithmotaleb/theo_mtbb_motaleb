@@ -17,6 +17,8 @@ export type ListEvent = {
     scheduleId?: string;          // set only when a cleaning exists
     checkIn: string;
     checkOut: string;
+    /** Guest check-out day ("YYYY-MM-DD") — the day a cleaning is scheduled for. */
+    cleaningDate?: string;
     platform: PlatformType;
     cleanerImage: any;
     cleaningLabel: string;

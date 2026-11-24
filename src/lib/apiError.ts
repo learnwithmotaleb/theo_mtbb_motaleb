@@ -25,6 +25,7 @@ export const getApiErrorMessage = (
     return t(rawMsg);
   }
   if (err.status === 'FETCH_ERROR') return t('Network error — check your connection.');
+  if (err.status === 'TIMEOUT_ERROR') return t('The server took too long to respond. Please try again.');
   if (err.message) return t(err.message);
   if (typeof err.error === 'string') return t(err.error);
   return fallback;

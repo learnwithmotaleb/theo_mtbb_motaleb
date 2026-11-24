@@ -8,8 +8,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_ORIGIN": "http://10.10.28.192:6050",
-        "EXPO_PUBLIC_API_BASE_URL": "http://10.10.28.192:6050/api/v1"
+        "EXPO_PUBLIC_API_ORIGIN": "http://10.10.28.200:5051",
+        "EXPO_PUBLIC_API_BASE_URL": "http://10.10.28.200:5051/api/v1",
+        "EXPO_PUBLIC_ONESIGNAL_APP_ID": "c47493a3-d889-404c-b214-5380463d2796"
       }
     },
     "preview": {
@@ -22,14 +23,16 @@
       },
       "env": {
         "EXPO_PUBLIC_API_ORIGIN": "https://api.gestlio.com",
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.gestlio.com/api/v1"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.gestlio.com/api/v1",
+        "EXPO_PUBLIC_ONESIGNAL_APP_ID": "c47493a3-d889-404c-b214-5380463d2796"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_ORIGIN": "https://api.gestlio.com",
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.gestlio.com/api/v1"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.gestlio.com/api/v1",
+        "EXPO_PUBLIC_ONESIGNAL_APP_ID": "c47493a3-d889-404c-b214-5380463d2796"
       }
     }
   },

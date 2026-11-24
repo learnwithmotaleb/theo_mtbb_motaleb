@@ -120,6 +120,9 @@ export function CalendarView({
         else goToMonth(year, month + 1);
     };
 
+    const todayDate = new Date();
+    const todayYmd = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+
     const getDayInfo = useCallback(
         (day: number) => {
             const ymd = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -185,6 +188,14 @@ export function CalendarView({
 
     const handleDayPress = (day: number) => {
         const info = getDayInfo(day);
+        const isPast = info.ymd < todayYmd;
+
+        // A past day keeps its information (scheduled cleaning, stay) but can
+        // no longer receive a new cleaning.
+        if (isPast && !info.schedule?._id && info.type !== 'occupied') {
+            showToast(t('This date has passed.'), 'info');
+            return;
+        }
 
         if (info.type === 'departure') {
             if (info.schedule?._id) {
@@ -274,6 +285,10 @@ export function CalendarView({
                                 }
 
                                 const info = getDayInfo(day);
+                                // Past days: greyed card, same information,
+                                // no "+" (nothing can be booked there anymore).
+                                const isPast = info.ymd < todayYmd;
+                                const isToday = info.ymd === todayYmd;
 
                                 return (
                                     <Pressable
@@ -283,19 +298,23 @@ export function CalendarView({
                                             info.type === 'departure' && styles.dayCardDeparture,
                                             info.type === 'occupied' && styles.dayCardOccupied,
                                             info.type === 'available' && styles.dayCardAvailable,
+                                            isPast && styles.dayCardPast,
+                                            isToday && styles.dayCardToday,
                                         ]}
                                         onPress={() => handleDayPress(day)}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={isPast ? `${day} – ${t('Past day')}` : String(day)}
                                     >
                                         {/* Day number at top */}
                                         <Caption4
-                                            color={Colors.PRIMARY_TEXT}
-                                            style={styles.dayNumber}
+                                            color={isPast ? Colors.TEXT_COLOR : isToday ? Colors.BRAND_PRIMARY : Colors.PRIMARY_TEXT}
+                                            style={[styles.dayNumber, isToday && styles.dayNumberToday]}
                                         >
                                             {day}
                                         </Caption4>
 
                                         {/* Center icon / status */}
-                                        <View style={styles.centerIconWrap}>
+                                        <View style={[styles.centerIconWrap, isPast && styles.pastContent]}>
                                             {info.type === 'departure' ? (
                                                 info.cleanerImage ? (
                                                     <AppImage
@@ -303,12 +322,12 @@ export function CalendarView({
                                                         style={styles.cleanerAvatar}
                                                         contentFit="cover"
                                                     />
-                                                ) : (
+                                                ) : isPast ? null : (
                                                     <View style={styles.orangeCircle}>
                                                         <PlusIcon color="#FFFFFF" size={12} />
                                                     </View>
                                                 )
-                                            ) : info.type === 'occupied' ? (
+                                            ) : isPast ? null : info.type === 'occupied' ? (
                                                 <View style={styles.greyCircle}>
                                                     <PlusIcon color="#8E8E93" size={10} />
                                                 </View>
@@ -321,7 +340,7 @@ export function CalendarView({
 
                                         {/* Bottom label */}
                                         {info.type === 'departure' ? (
-                                            <Caption5 style={styles.departureText}>
+                                            <Caption5 style={[styles.departureText, isPast && styles.pastContent]}>
                                                 {info.label}
                                             </Caption5>
                                         ) : info.type === 'occupied' ? (
@@ -451,6 +470,21 @@ const styles = StyleSheet.create({
     dayCardAvailable: {
         backgroundColor: '#FFFFFF',
         borderColor: '#EFEFEF',
+    },
+    // Grey "filter" on past days; labels and photos stay readable.
+    dayCardPast: {
+        backgroundColor: '#E9E9EC',
+        borderColor: '#DCDCE0',
+    },
+    dayCardToday: {
+        borderColor: Colors.BRAND_PRIMARY,
+        borderWidth: 1.5,
+    },
+    dayNumberToday: {
+        fontFamily: 'Poppins_700Bold',
+    },
+    pastContent: {
+        opacity: 0.75,
     },
     dayNumber: {
         fontFamily: 'Poppins_500Medium',

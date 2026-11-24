@@ -6,12 +6,14 @@ import { formatTime } from '@/lib/datetime';
 import { avatarSource, personName } from '@/lib/mappers';
 import { useCurrentUser } from '@/redux/hooks';
 import {
+  useGetConversationQuery,
   useGetConversationsQuery,
   useMarkConversationReadMutation,
   useSendMessageMutation,
   type Message,
 } from '@/redux/services/chatApi';
 import { useGetMessagesQuery } from '@/redux/services/chatApi';
+import { UPLOAD_PICKER_OPTIONS } from '@/lib/photoUpload';
 
 /** A message in the shape the existing chat bubbles render. */
 export interface ChatBubble {
@@ -51,20 +53,30 @@ export const useConversation = (conversationId?: string) => {
   const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
   const [markRead] = useMarkConversationReadMutation();
 
-  // Opening the thread clears its unread badge.
+  // Opening the thread clears its unread badge, and so does every message that
+  // arrives while it is open — otherwise the inbox would show it as unread on
+  // the way back. Keyed on the newest message (the list is newest first).
+  const newestMessageId = data?.data?.[0]?._id;
   useEffect(() => {
     if (conversationId) markRead(conversationId);
-  }, [conversationId, markRead]);
+  }, [conversationId, newestMessageId, markRead]);
+
+  // Fetched on its own, so the header works for any conversation — not only
+  // ones within the first page of the inbox.
+  const { data: single } = useGetConversationQuery(conversationId as string, {
+    skip: !conversationId,
+  });
 
   const header = useMemo(() => {
-    const conversation = conversations?.data.find((c) => c._id === conversationId);
+    const conversation =
+      single ?? conversations?.data.find((c) => c._id === conversationId);
     const other = conversation?.otherParticipant;
     return {
       name: personName(other, 'Conversation'),
       image: avatarSource(other?.profileImage),
       otherParticipantId: other?._id ?? '',
     };
-  }, [conversations, conversationId]);
+  }, [single, conversations, conversationId]);
 
   const messages = useMemo<ChatBubble[]>(() => {
     const rows = data?.data ?? [];
@@ -104,8 +116,7 @@ export const useConversation = (conversationId?: string) => {
     if (!permission.granted) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
+        ...UPLOAD_PICKER_OPTIONS,
     });
     if (result.canceled || !result.assets?.length) return;
 

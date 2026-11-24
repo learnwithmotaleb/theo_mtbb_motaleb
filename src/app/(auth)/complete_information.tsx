@@ -6,7 +6,7 @@ import { FormInput } from '@/components/inputForm/inputForm';
 import { CustomButton } from '@/components/shared/CustomButton';
 import CustomLoader from '@/components/shared/CustomLoader';
 import { StepIndicator } from '@/components/shared/StepIndicator';
-import Toast, { showToast } from '@/components/shared/Toast';
+import { showToast } from '@/components/shared/Toast';
 import { Body6, Caption2, Caption3, H1 } from '@/components/typo/Typography';
 import { FORM_FIELDS } from '@/components/ui/form';
 import { Colors } from '@/constants/theme';
@@ -76,10 +76,11 @@ export default function CompleteInformationScreen() {
                 }).unwrap();
 
                 // The token from verify-otp carries no role, so every
-                // role-protected route would reject it. Signing in now that a
-                // password exists swaps it for a role-bearing token.
+                // role-protected route would reject it. complete-profile now
+                // returns a role-bearing token (already saved by the
+                // mutation); only an older backend without one needs signin.
                 let nextRole = res.data?.role ?? role;
-                if (email) {
+                if (!res.token && email) {
                     try {
                         const session = await signin({ email, password }).unwrap();
                         nextRole = session.data.role ?? nextRole;
@@ -126,7 +127,6 @@ export default function CompleteInformationScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.APP_BACKGROUND }}>
-            <Toast />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.root}

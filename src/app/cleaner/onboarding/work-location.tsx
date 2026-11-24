@@ -83,7 +83,7 @@ export default function WorkLocationScreen() {
                 </View>
                 {cityError ? (
                     <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                        {cityError}
+                        {t(cityError)}
                     </Caption1>
                 ) : null}
 

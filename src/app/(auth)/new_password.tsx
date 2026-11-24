@@ -2,7 +2,7 @@ import { useT } from '@/i18n';
 import { FormInput } from '@/components/inputForm/inputForm';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
-import Toast, { showToast } from '@/components/shared/Toast';
+import { showToast } from '@/components/shared/Toast';
 import { Caption2 } from '@/components/typo/Typography';
 import { FORM_FIELDS } from '@/components/ui/form';
 import { Colors } from '@/constants/theme';
@@ -60,7 +60,6 @@ export default function NewPasswordScreen() {
 
     return (
         <>
-            <Toast />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.root}

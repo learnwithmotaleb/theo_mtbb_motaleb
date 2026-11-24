@@ -95,7 +95,65 @@ export const assignmentApi = baseApi.injectEndpoints({
 
     removeAssignment: builder.mutation<ApiEnvelope<null>, string>({
       query: (assignmentId) => ({ url: `/assignment/${assignmentId}`, method: 'DELETE' }),
-      invalidatesTags: ['Assignment', 'Accommodation'],
+      // Ending the link also changes the cleaner's missions and the host's
+      // housing / dashboard, so all of those refresh.
+      invalidatesTags: [
+        'Assignment',
+        'Accommodation',
+        'CleanerRequest',
+        'CleanerHome',
+        'Schedule',
+        'Housekeeper',
+        'HostDashboard',
+      ],
+    }),
+
+    /**
+     * Cleaner ends the collaboration (status -> "left"). The backend cancels
+     * their upcoming cleanings there (refunding paid ones) and promotes a
+     * substitute if they were primary. DELETE /assignment/:id is host-only.
+     */
+    leaveAssignment: builder.mutation<
+      ApiEnvelope<{
+        assignmentId: string;
+        accommodationId: string;
+        cancelledSchedules: number;
+        refundedPayments: number;
+        newPrimaryAssignmentId: string | null;
+      }>,
+      string
+    >({
+      query: (assignmentId) => ({
+        url: `/assignment/${assignmentId}/leave`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: [
+        'Assignment',
+        'Accommodation',
+        'CleanerRequest',
+        'CleanerHome',
+        'Schedule',
+        'Housekeeper',
+        'HostDashboard',
+        'Payment',
+      ],
+    }),
+
+    // ── Host: every connection request, across properties ──────────────────
+    /** GET /assignment/host — refused and left ones are kept until removed. */
+    getHostAssignments: builder.query<
+      Paginated<CleanerAssignment>,
+      {
+        /** One status or several, comma-separated. */
+        status?: string;
+        accommodationId?: string;
+        page?: number;
+        limit?: number;
+      } | void
+    >({
+      query: (params) => ({ url: '/assignment/host', params: params ?? {} }),
+      transformResponse: (res: ApiEnvelope<Paginated<CleanerAssignment>>) => res.data,
+      providesTags: ['Assignment'],
     }),
 
     // ── Cleaner: inbox ────────────────────────────────────────────────────────
@@ -149,6 +207,8 @@ export const {
   useGetMyRequestsQuery,
   useGetMyCleanerAccommodationsQuery,
   useRespondToAssignmentMutation,
+  useLeaveAssignmentMutation,
+  useGetHostAssignmentsQuery,
 } = assignmentApi;
 
 /**

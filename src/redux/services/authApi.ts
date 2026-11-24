@@ -2,6 +2,8 @@ import { baseApi, deleteToken, saveToken } from '../api/baseApi';
 import { clearAuth, setCredentials, setPendingSignup } from '../slices/authSlice';
 import type { ApiEnvelope, User } from '../types';
 import { normalizeEmail } from '../../../utils/validation';
+import { stopPushForUser } from '@/lib/push';
+import { miscApi } from './miscApi';
 
 /** Same body, email trimmed. */
 const withEmail = <T extends { email: string }>(body: T): T => ({
@@ -16,14 +18,22 @@ const withEmail = <T extends { email: string }>(body: T): T => ({
  *
  * Signup order (backend contract, see auth.routes.ts):
  *   signup(email) -> verify-otp(email, 4-digit otp) -> complete-profile -> select-role
- * `select-role` does NOT re-issue a token, and the verify-otp token carries no
- * role, so role-protected routes reject it. The final signup step must call
- * `signin` again with the captured password to get a role-bearing token.
+ * The verify-otp token carries no role. `select-role` and `complete-profile`
+ * now return a fresh role-bearing token, which is saved immediately. On an
+ * older backend that returns none, the final step falls back to `signin`
+ * with the captured password.
  */
 
 export interface AuthEnvelope extends ApiEnvelope<User> {
   token: string;
 }
+
+/** select-role / complete-profile now also return a fresh, role-bearing token. */
+type MaybeTokenEnvelope = ApiEnvelope<User> & { token?: string };
+
+/** The token sits at the envelope's top level; tolerate `data.token` too. */
+const tokenFrom = (res: MaybeTokenEnvelope): string | undefined =>
+  res.token || (res.data as (User & { token?: string }) | undefined)?.token || undefined;
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -57,24 +67,44 @@ export const authApi = baseApi.injectEndpoints({
 
     // Runs on the onboarding token. The password is stashed so the final step
     // can re-signin for a role-bearing token.
+    // queryFn (not onQueryStarted) so the new token is saved BEFORE unwrap()
+    // resolves — the next screen's requests must already carry it.
     completeProfile: builder.mutation<
-      ApiEnvelope<User>,
+      MaybeTokenEnvelope,
       { firstName: string; lastName: string; password: string }
     >({
-      query: (body) => ({ url: '/auth/complete-profile', method: 'POST', body }),
-      async onQueryStarted({ password }, { dispatch, queryFulfilled }) {
-        const { data } = await queryFulfilled;
-        dispatch(setCredentials({ user: data.data }));
-        dispatch(setPendingSignup({ password }));
+      async queryFn(body, { dispatch }, _extraOptions, baseQuery) {
+        const result = await baseQuery({
+          url: '/auth/complete-profile',
+          method: 'POST',
+          body,
+        });
+        if (result.error) return { error: result.error };
+
+        const data = result.data as MaybeTokenEnvelope;
+        const token = tokenFrom(data);
+        if (token) await saveToken(token);
+        dispatch(setCredentials({ token, user: data.data }));
+        dispatch(setPendingSignup({ password: body.password }));
+        return { data };
       },
       invalidatesTags: ['Auth', 'Me'],
     }),
 
-    selectRole: builder.mutation<ApiEnvelope<User>, { role: 'host' | 'cleaner' }>({
-      query: (body) => ({ url: '/auth/select-role', method: 'POST', body }),
-      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-        const { data } = await queryFulfilled;
-        dispatch(setCredentials({ user: data.data }));
+    selectRole: builder.mutation<MaybeTokenEnvelope, { role: 'host' | 'cleaner' }>({
+      async queryFn(body, { dispatch }, _extraOptions, baseQuery) {
+        const result = await baseQuery({
+          url: '/auth/select-role',
+          method: 'POST',
+          body,
+        });
+        if (result.error) return { error: result.error };
+
+        const data = result.data as MaybeTokenEnvelope;
+        const token = tokenFrom(data);
+        if (token) await saveToken(token);
+        dispatch(setCredentials({ token, user: data.data }));
+        return { data };
       },
       invalidatesTags: ['Auth', 'Me'],
     }),
@@ -103,6 +133,14 @@ export const authApi = baseApi.injectEndpoints({
       // The backend has no logout route — the token is stateless. Clearing the
       // keychain and the store is the whole operation.
       queryFn: async (_arg, api) => {
+        // While the token still works, stop pushes to this phone for this
+        // account. A failure (offline) must never block signing out.
+        try {
+          await api.dispatch(miscApi.endpoints.removeDeviceToken.initiate()).unwrap();
+        } catch {
+          /* the next sign-in on this phone re-registers it anyway */
+        }
+        stopPushForUser();
         await deleteToken();
         api.dispatch(clearAuth());
         return { data: undefined };

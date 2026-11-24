@@ -18,12 +18,41 @@ import {
 import { showToast } from '@/components/shared/Toast';
 import { getApiErrorMessage } from '@/lib/apiError';
 import { useDeleteTodoItemMutation, useGetHostDashboardQuery } from '@/redux/services/accommodationApi';
+import { useGetHostScheduleSummaryQuery } from '@/redux/services/scheduleApi';
+import { TONE_COLORS, type Tone } from '@/lib/hostTracking';
+import type { TrackingTab } from '@/app/host/home/all_todo_tasks';
 import { AppImage } from '@/components/shared/AppImage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+
+// ── Tracking counters ─────────────────────────────────────────────────────────
+function CounterTile({
+    value,
+    label,
+    tone,
+    onPress,
+}: {
+    value: number;
+    label: string;
+    tone: Tone;
+    onPress: () => void;
+}) {
+    const c = TONE_COLORS[tone];
+    return (
+        <Pressable
+            style={[styles.counter, value > 0 && { backgroundColor: c.bg, borderColor: 'transparent' }]}
+            onPress={onPress}
+            accessibilityRole="button"
+            accessibilityLabel={`${value} ${label}`}
+        >
+            <Body2 color={value > 0 ? c.fg : Colors.TEXT_COLOR}>{value}</Body2>
+            <Caption4 color={Colors.PRIMARY_TEXT} numberOfLines={2}>{label}</Caption4>
+        </Pressable>
+    );
+}
 
 // ── Empty states ──────────────────────────────────────────────────────────────
 function EmptySchedule() {
@@ -82,8 +111,16 @@ export default function HostHomeScreen() {
         { page: 1, limit: 20 },
         { refetchOnFocus: true },
     );
-    const { refreshing, onRefresh } = useRefresh([refetch]);
+    // Counters for the tracking tiles; live via the socket, else every minute.
+    const { data: summary, refetch: refetchSummary } = useGetHostScheduleSummaryQuery(undefined, {
+        pollingInterval: 60_000,
+        refetchOnFocus: true,
+    });
+    const { refreshing, onRefresh } = useRefresh([refetch, refetchSummary]);
     const [deleteTodoItem] = useDeleteTodoItemMutation();
+
+    const openTracking = (tab: TrackingTab) =>
+        router.push({ pathname: '/host/home/all_todo_tasks', params: { tab } } as any);
 
     // Cleaners answer from their own phone: refresh the to-do feed whenever
     // the host comes back to this tab.
@@ -122,6 +159,8 @@ export default function HostHomeScreen() {
                 taskId: item.id,
                 kind: source?.kind ?? 'schedule',
                 status: item.status,
+                // Backend status ("left", "expired"…) for the exact wording.
+                eventStatus: source?.status,
             },
         } as any);
     };
@@ -196,6 +235,17 @@ export default function HostHomeScreen() {
                     {t("Find your current tasks and requests here")}
                 </Body6>
 
+                {summary && (
+                    <View style={styles.counters}>
+                        <CounterTile value={summary.awaitingResponse} label={t('Awaiting response')} tone="waiting" onPress={() => openTracking('requests')} />
+                        <CounterTile value={summary.toPay} label={t('To pay')} tone="action" onPress={() => openTracking('actions')} />
+                        <CounterTile value={summary.proofToValidate} label={t('Proof to validate')} tone="action" onPress={() => openTracking('actions')} />
+                        <CounterTile value={summary.today} label={t('Today')} tone="success" onPress={() => openTracking('today')} />
+                        <CounterTile value={summary.upcoming} label={t('Upcoming')} tone="success" onPress={() => openTracking('upcoming')} />
+                        <CounterTile value={summary.pendingConnections} label={t('Cleaner requests')} tone="waiting" onPress={() => openTracking('connections')} />
+                    </View>
+                )}
+
                 {isLoading ? (
                     <SkeletonList count={2} />
                 ) : todoTasks.length === 0 ? (
@@ -216,13 +266,9 @@ export default function HostHomeScreen() {
                     />
                 )}
 
-                {(data?.to_do?.meta?.total ?? 0) > 2 && (
-                    <ViewAllButton
-                        onPress={() =>
-                            router.push('/host/home/all_todo_tasks' as any)
-                        }
-                    />
-                )}
+                {/* Always reachable: the full tracking page (requests, today,
+                    upcoming, cleaners), not only when there are many cards. */}
+                <ViewAllButton onPress={() => openTracking('actions')} />
 
                 {/* ── Quick access ── */}
                 <Body2 color={Colors.TEXT_COLOR} style={styles.sectionTitle}>
@@ -252,6 +298,17 @@ const styles = StyleSheet.create({
     sectionTitle: { marginTop: hp(24), marginBottom: hp(4) },
     sectionSub: { marginBottom: hp(12) },
     todoList: { gap: hp(12) },
+    counters: { flexDirection: 'row', flexWrap: 'wrap', gap: wp(8), marginBottom: hp(14) },
+    counter: {
+        width: '31.5%',
+        minHeight: hp(68),
+        padding: wp(10),
+        borderRadius: wp(12),
+        backgroundColor: Colors.INPUT_BACKGROUND,
+        borderWidth: 1,
+        borderColor: Colors.BORDER_COLOR,
+        justifyContent: 'space-between',
+    },
     loader: { paddingVertical: hp(30) },
     emptyBox: {
         flexDirection: 'row',

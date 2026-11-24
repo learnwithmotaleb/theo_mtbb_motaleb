@@ -5,6 +5,7 @@ import { getToken } from '@/redux/api/baseApi';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { useLazyGetMeQuery, useLogoutMutation } from '@/redux/services/authApi';
 import { setBootstrapped, setToken } from '@/redux/slices/authSlice';
+import type { User } from '@/redux/types';
 
 /** Where a signed-in user belongs, by role. Admin is dashboard-only. */
 export const homeRouteForRole = (role?: string | null): string => {
@@ -12,6 +13,19 @@ export const homeRouteForRole = (role?: string | null): string => {
   if (role === 'host') return '/host/(tabs)';
   // No role yet (verify-otp token) — the signup flow still owes us a role.
   return '/(auth)/role_select';
+};
+
+/**
+ * A cleaner whose onboarding never got saved (e.g. the last step failed) must
+ * finish it before reaching home, or their profile stays empty for good.
+ * Trusts the backend's `isOnboardingComplete` when true; otherwise checks the
+ * required fields directly, so an older backend that always reports `false`
+ * cannot trap a fully set-up cleaner in onboarding. Unknown user -> no.
+ */
+export const cleanerNeedsOnboarding = (user?: User | null): boolean => {
+  if (!user || user.role !== 'cleaner') return false;
+  if (user.isOnboardingComplete === true) return false;
+  return !user.siretNumber || !user.workCity;
 };
 
 /**
@@ -66,6 +80,24 @@ export const useSessionBootstrap = () => {
     role,
     homeRoute: homeRouteForRole(role),
   };
+};
+
+/**
+ * End of a signup / onboarding flow: drop the wizard screens from the stack,
+ * then replace with the role's home (or a specific tab under it). Every flow
+ * ends here, so the back gesture can never walk back into onboarding.
+ */
+export const useGoToRoleHome = () => {
+  const router = useRouter();
+  const role = useAppSelector((s) => s.auth.role);
+
+  return useCallback(
+    (path?: string) => {
+      if (router.canDismiss()) router.dismissAll();
+      router.replace((path ?? homeRouteForRole(role)) as never);
+    },
+    [router, role],
+  );
 };
 
 /** Sign out: clears the keychain, the store and the RTK Query cache. */

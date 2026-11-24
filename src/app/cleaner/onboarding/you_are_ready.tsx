@@ -9,7 +9,7 @@ import { Body3, Body5, Body6, Body7, Caption3, H2 } from '@/components/typo/Typo
 import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
 import { AppImage } from '@/components/shared/AppImage';
-import { useRouter } from 'expo-router';
+import { useGoToRoleHome } from '@/hooks/useSession';
 import React, { useState } from 'react';
 import {
     ScrollView,
@@ -21,12 +21,12 @@ import { hp, wp } from '../../../../utils/responsiveDevice';
 
 export default function YouAreReadyScreen() {
     const t = useT();
-    const router = useRouter();
+    const goToRoleHome = useGoToRoleHome();
     const [isLoading] = useState(false);
 
-    // replace, so the back gesture cannot walk back into the wizard.
+    // Clears the wizard, so the back gesture cannot walk back into it.
     const handleContinue = () => {
-        router.replace('/cleaner/(tabs)');
+        goToRoleHome('/cleaner/(tabs)');
     };
 
     return (

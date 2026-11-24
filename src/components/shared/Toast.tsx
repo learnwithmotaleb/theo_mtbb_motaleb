@@ -27,12 +27,12 @@ export const showToast = (message: string, type: ToastType = 'info', duration = 
 
 export default function Toast() {
     const [state, setState] = useState<ToastState>({ message: '', type: 'info', visible: false });
-    const opacity = useRef(new Animated.Value(0)).current;
+    const [opacity] = useState(() => new Animated.Value(0));
     const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
    
     useEffect(() => {
-        toastRef = ({ message, type = 'info', duration = 2000 }) => {
+        const show = ({ message, type = 'info', duration = 2000 }: ToastConfig) => {
          
             if (animationRef.current) animationRef.current.stop();
             opacity.setValue(0);
@@ -48,14 +48,21 @@ export default function Toast() {
                 if (finished) setState(prev => ({ ...prev, visible: false }));
             });
         };
+        toastRef = show;
 
-        
         if (toastQueue.length > 0) {
             const pending = toastQueue.shift()!;
-            toastRef(pending);
+            show(pending);
         }
 
-    }, []);
+        // Unregister on unmount. Otherwise showToast() keeps calling a dead
+        // component and every later message silently disappears — this is
+        // what made the end of signup look "stuck" with no error shown.
+        return () => {
+            animationRef.current?.stop();
+            if (toastRef === show) toastRef = null;
+        };
+    }, [opacity]);
 
     const bgColor =
         state.type === 'success' ? '#2596BE' :

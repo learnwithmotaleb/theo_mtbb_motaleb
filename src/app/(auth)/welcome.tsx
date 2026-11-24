@@ -1,24 +1,16 @@
-import { Translate, useT } from '@/i18n';
-import { ActionIcon } from '@/assets/icons/common_icon/ActionIcon';
-import { InfoIcon } from '@/assets/icons/common_icon/InfoIcon';
+import { useT } from '@/i18n';
 import { LeftAngleIcon } from '@/assets/icons/common_icon/LiftAngleIcon';
-import { ProfileIcon } from '@/assets/icons/common_icon/ProfileIcon';
 import { CustomButton } from '@/components/shared/CustomButton';
 import { Body6, H1 } from '@/components/typo/Typography';
 import { IMAGE_COMPONENTS } from '@/constants/image.index';
 import { Colors } from '@/constants/theme';
 import { AppImage } from '@/components/shared/AppImage';
+import { useGoToRoleHome } from '@/hooks/useSession';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../utils/responsiveDevice';
-
-// Takes `t` so the labels follow the selected language.
-const nextSteps = (t: Translate) => [
-    { IconComponent: ProfileIcon, label: t("Complete your profile.") },
-    { IconComponent: InfoIcon, label: t("Add your information.") },
-    { IconComponent: ActionIcon, label: t("Start your first action.") },
-];
 
 export default function WelcomeScreen() {
     const t = useT();
@@ -26,12 +18,13 @@ export default function WelcomeScreen() {
 
     // Adding the first accommodation is the whole point of the wizard, but a
     // host who would rather do it later can go straight to their space.
+    const goToRoleHome = useGoToRoleHome();
     const handleGoToSpace = () => {
-        router.replace('/host/(tabs)' as any);
+        goToRoleHome('/host/(tabs)');
     };
 
     return (
-        <View style={styles.root}>
+        <SafeAreaView style={styles.safe}>
             <View style={styles.topRow}>
                 <Pressable
                     onPress={() => router.back()}
@@ -45,8 +38,11 @@ export default function WelcomeScreen() {
                 </Pressable>
             </View>
 
-            <View style={styles.content}>
-                {/* Success illustration */}
+            {/* Scrolls on small phones, so the content can never slide under the buttons. */}
+            <ScrollView
+                contentContainerStyle={styles.scroll}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.welcomeImageWrapper}>
                     <AppImage
                         source={IMAGE_COMPONENTS.welcomeImage}
@@ -55,64 +51,46 @@ export default function WelcomeScreen() {
                     />
                 </View>
 
-                {/* Title & description */}
                 <H1 color={Colors.PRIMARY_TEXT} align="center" style={styles.title}>
                     {t("Welcome to Gestlio!")}
                 </H1>
                 <Body6 color={Colors.TEXT_COLOR} align="center" style={styles.description}>
                     {t("Your space is now ready. You can start managing your consultations with peace of mind.")}
                 </Body6>
+            </ScrollView>
 
-                {/* What's next card */}
-                <View style={styles.nextCard}>
-                    <Body6 color={Colors.PRIMARY_TEXT} style={styles.nextTitle}>
-                        {t("What's next?")}
-                    </Body6>
-
-                    {nextSteps(t).map(({ IconComponent, label }, index) => (
-                        <View key={index} style={styles.nextRow}>
-                            <View style={styles.nextIconWrapper}>
-                                <IconComponent />
-                            </View>
-                            <Body6 color={Colors.PRIMARY_TEXT}>{label}</Body6>
-                        </View>
-                    ))}
-                </View>
-            </View>
-
-            {/* Bottom button */}
+            {/* Fixed footer, separate from the content — same buttons as the other onboarding screens. */}
             <View style={styles.footer}>
                 <CustomButton
                     title={t("Add my first accommodation")}
                     onPress={() => router.push('/host/onboarding/welcome_host')}
                     width="100%"
-                    height={hp(56)}
-                    borderRadius={14}
+                    height={hp(54)}
+                    borderRadius={wp(14)}
                 />
                 <CustomButton
                     title={t("Skip for now")}
                     onPress={handleGoToSpace}
-                    color={Colors.TEXT_COLOR}
-                    backgroundColor={Colors.APP_BACKGROUND}
+                    color={Colors.PRIMARY_TEXT}
+                    backgroundColor={Colors.INPUT_BACKGROUND}
                     borderColor={Colors.BORDER_COLOR}
                     width="100%"
-                    height={hp(56)}
-                    borderRadius={14}
+                    height={hp(54)}
+                    borderRadius={wp(14)}
                 />
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
-    root: {
+    safe: {
         flex: 1,
         backgroundColor: Colors.APP_BACKGROUND,
         paddingHorizontal: wp(20),
-        paddingTop: hp(30),
     },
     topRow: {
-        marginBottom: hp(16),
+        marginTop: hp(8),
     },
     backBtn: {
         width: wp(36),
@@ -123,14 +101,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         overflow: 'hidden',
     },
-    content: {
-        flex: 1,
+    // flexGrow + center: the image and text sit in the middle of the free space.
+    scroll: {
+        flexGrow: 1,
         alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: hp(16),
     },
     welcomeImageWrapper: {
-        width: wp(250),
-        height: wp(250),
-        alignItems: 'center',
+        width: wp(240),
+        height: wp(240),
+        marginBottom: hp(24),
     },
     welcomeImage: {
         width: '100%',
@@ -140,33 +121,11 @@ const styles = StyleSheet.create({
         marginBottom: hp(8),
     },
     description: {
-        marginBottom: hp(24),
         paddingHorizontal: wp(8),
     },
-    nextCard: {
-        width: '100%',
-        backgroundColor: Colors.INPUT_BACKGROUND,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: Colors.BORDER_COLOR,
-        padding: wp(18),
-        marginBottom: hp(24),
-    },
-    nextTitle: {
-        marginBottom: hp(14),
-    },
-    nextRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: hp(12),
-    },
-    nextIconWrapper: {
-        marginRight: wp(12),
-    },
+    // CustomButton already adds marginTop: hp(10), which spaces the two buttons.
     footer: {
         width: '100%',
-        gap: hp(12),
-        paddingBottom: hp(24),
-        paddingTop: hp(8),
+        paddingBottom: hp(12),
     },
 });

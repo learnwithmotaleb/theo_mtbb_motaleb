@@ -139,10 +139,14 @@ export interface ApiTodoEvent {
 /** Backend lifecycle status -> the four to-do card variants the app renders. */
 const todoStatus = (event: ApiTodoEvent): TaskStatus => {
   if (event.kind === 'assignment') {
-    return event.status === 'refused' ? 'refused' : 'pending_accept';
+    // refused / left (cleaner ended the collaboration) both need a new cleaner.
+    return event.status === 'refused' || event.status === 'left' ? 'refused' : 'pending_accept';
   }
   switch (event.status) {
     case 'refused':
+    // No answer in time: same next step as a refusal (reschedule / pick
+    // another cleaner), with its own "expired" label.
+    case 'expired':
       return 'refused';
     case 'completed':
       return 'completed';
@@ -164,6 +168,7 @@ const TODO_LABELS: Record<string, string> = {
   'assignment:pending': 'Demande en attente',
   'assignment:accepted': 'Demande acceptée',
   'assignment:refused': 'Demande refusée',
+  'assignment:left': "Fin de collaboration – l'agent a quitté le logement",
   'schedule:scheduled': 'Ménage planifié – En attente de validation',
   'schedule:pending': 'Ménage planifié – En attente de validation',
   'schedule:accepted': 'Ménage validé',
@@ -173,6 +178,7 @@ const TODO_LABELS: Record<string, string> = {
   'schedule:completed': 'Preuve de ménage à valider',
   'schedule:disputed': 'Problème signalé',
   'schedule:cancelled': 'Ménage annulé',
+  'schedule:expired': "Demande expirée – sans réponse de l'agent",
 };
 
 export const todoLabel = (event: Pick<ApiTodoEvent, 'kind' | 'status' | 'label'>): string => {
@@ -301,13 +307,12 @@ export const toCleanerTask = (mission: MissionCard): CleanerTask & {
     isPrincipal: (assignment?.role ?? 'primary') === 'primary',
     isUpcoming: mission.dayKey ? mission.dayKey > toDateKey(new Date()) : false,
 
-    type: accommodation?.accommodationType ?? '',
+    // Stored in English ("Other", "Apartment"…); shown in the app's language.
+    type: accommodation?.accommodationType ? t(accommodation.accommodationType) : '',
     surface: accommodation?.surface ? `${accommodation.surface}m²` : '',
     floor: accommodation?.floor ? String(accommodation.floor) : '',
     rooms: roomsText(accommodation?.numberOfRooms),
-    bathrooms: accommodation?.numberOfBathrooms
-      ? t('{n} bathrooms', { n: accommodation.numberOfBathrooms })
-      : '',
+    bathrooms: bathroomsText(accommodation),
     access: accommodation?.hasElevator ? t('Elevator') : t('Stairs'),
     cleaningRate: formatMoney(
       assignment?.pricePerCleaning ?? accommodation?.cleaningRate ?? 0,
@@ -332,6 +337,22 @@ export const toCleanerTask = (mission: MissionCard): CleanerTask & {
     proofPhotos: mission.proofPhotos ?? [],
     paymentStatus: mission.paymentStatus,
   };
+};
+
+/**
+ * "1 salle de bain" / "2 salles de bain". The accommodation model has no
+ * bathroom field yet, so the host's count lives in `notes`
+ * ("2 bathroom(s) - 1 toilet(s)"); a real `numberOfBathrooms` wins if present.
+ */
+export const bathroomsText = (accommodation?: {
+  numberOfBathrooms?: number | string | null;
+  notes?: string | null;
+} | null): string => {
+  const fromField = Number(accommodation?.numberOfBathrooms);
+  const fromNotes = Number(/(\d+)\s*bathroom/i.exec(accommodation?.notes ?? '')?.[1]);
+  const n = fromField || fromNotes;
+  if (!n) return '';
+  return n === 1 ? t('1 bathroom') : t('{n} bathrooms', { n });
 };
 
 /** A pending assignment request as the cleaner's request cards want it. */
@@ -473,6 +494,7 @@ export const toListEvents = (list: any): ListEvent[] => {
       scheduleId: schedule ? String(schedule._id) : undefined,
       checkIn: stayLabel(booking.startDate),
       checkOut: stayLabel(booking.endDate),
+      cleaningDate: booking.endDate ? toDateKey(booking.endDate) : undefined,
       platform: knownPlatform(booking.platform),
       cleanerImage: avatarSource(schedule?.cleaner?.profileImage),
       cleaningLabel: schedule ? t('Scheduled Cleaning') : t('No cleaning scheduled'),

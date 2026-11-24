@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gestlio",
     "slug": "gestlio",
-    "version": "1.0.5",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/images/icon1.png",
     "scheme": "gestlio",
@@ -10,12 +10,21 @@
     "ios": {
       "icon": "./assets/images/icon1.png",
       "bundleIdentifier": "com.gestlio.app",
-      "buildNumber": "13",
+      "buildNumber": "20",
       "supportsTablet": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Gestlio needs access to your photos so you can add pictures of your accommodation and upload proof of a completed cleaning.",
         "NSCameraUsageDescription": "Gestlio needs access to your camera so you can photograph your accommodation and the result of a cleaning.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "fr",
+        "CFBundleLocalizations": [
+          "fr",
+          "en"
+        ],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Gestlio does not use your location. This permission is never requested by the app."
       }
     },
     "android": {
@@ -28,11 +37,12 @@
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
       "package": "com.gestlio.app",
-      "versionCode": 15,
+      "versionCode": 19,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
@@ -47,10 +57,19 @@
     "plugins": [
       "expo-router",
       [
+        "onesignal-expo-plugin",
+        {
+          "mode": "production",
+          "devTeam": "85BK5MXPNB"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "ios": {
-            "enableSceneSupport": true
+            "enableSceneSupport": true,
+            "buildReactNativeFromSource": true,
+            "usePrecompiledModules": false
           }
         }
       ],
@@ -90,6 +109,10 @@
         "projectId": "919ad7dc-8643-49c6-94b7-94fff56214ba"
       }
     },
-    "owner": "learnwithmotaleb"
+    "owner": "learnwithmotaleb",
+    "locales": {
+      "fr": "./languages/fr.json",
+      "en": "./languages/en.json"
+    }
   }
 }

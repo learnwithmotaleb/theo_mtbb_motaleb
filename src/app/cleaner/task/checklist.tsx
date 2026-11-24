@@ -25,6 +25,7 @@ import React, { useMemo, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+import { UPLOAD_PICKER_OPTIONS } from '@/lib/photoUpload';
 
 export default function ChecklistScreen() {
     const t = useT();
@@ -67,6 +68,9 @@ export default function ChecklistScreen() {
 
     // Photos are the proof the host validates against, so at least one is
     // required before the mission can be submitted.
+    // The proof needs at least one photo: drives the highlight and the button.
+    const hasPhotos = photos.length > 0;
+
     const handleSubmit = async () => {
         if (!taskId || isReadonly) return;
         if (photos.length === 0) {
@@ -95,8 +99,7 @@ export default function ChecklistScreen() {
             return;
         }
         const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
+            ...UPLOAD_PICKER_OPTIONS,
         });
         if (!result.canceled && result.assets[0]) {
             setPhotos((prev) => [...prev, result.assets[0].uri]);
@@ -109,7 +112,7 @@ export default function ChecklistScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
-            <SectionTitle title={t("Check List")} />
+            <SectionTitle title={t("Cleaning validation")} />
 
             {isLoading && !schedule ? (
                 <SkeletonDetail />
@@ -155,12 +158,22 @@ export default function ChecklistScreen() {
                     </View>
 
                     {/* Capture button */}
+                    {/* Step 1 is taking a photo: highlighted until one exists, then a
+                        quieter "add another". */}
                     {!isReadonly && (
-                        <Pressable style={styles.captureBtn} onPress={handleCapture}>
-                            <View style={styles.iconGroup}>
-                                <CameraIcon color='#303030' />
+                        <Pressable
+                            style={[styles.captureBtn, !hasPhotos && styles.captureBtnPrimary]}
+                            onPress={handleCapture}
+                            accessibilityRole="button"
+                        >
+                            <View style={[styles.iconGroup, !hasPhotos && styles.iconGroupPrimary]}>
+                                <CameraIcon color={hasPhotos ? '#303030' : '#FFFFFF'} />
                             </View>
-                            <Caption3 color={Colors.PRIMARY_TEXT}>{t("Capture Photos")}</Caption3>
+                            {hasPhotos ? (
+                                <Caption3 color={Colors.PRIMARY_TEXT}>{t("Add a photo")}</Caption3>
+                            ) : (
+                                <Caption2 color={Colors.COLOR_ACTIVE}>{t("Capture Photos")}</Caption2>
+                            )}
                         </Pressable>
                     )}
 
@@ -235,13 +248,14 @@ export default function ChecklistScreen() {
                             height={hp(52)}
                         />
                     ) : (
+                        // Greyed out and disabled until at least one photo is taken.
                         <CustomButton
                             title={isSubmitting ? t("Submitting...") : t("Submit Proof")}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || !hasPhotos}
                             onPress={handleSubmit}
                             width="100%"
-                            backgroundColor={Colors.COLOR_ACTIVE}
-                            color="#fff"
+                            backgroundColor={hasPhotos ? Colors.COLOR_ACTIVE : '#E4E4E4'}
+                            color={hasPhotos ? '#fff' : '#9A9A9A'}
                             borderRadius={wp(8)}
                             height={hp(52)}
                         />
@@ -310,6 +324,19 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "center",
         alignItems: "center",
+    },
+    // No photo yet: the capture button is the obvious next step.
+    captureBtnPrimary: {
+        backgroundColor: '#E8F8EE',
+        borderWidth: 1.5,
+        borderColor: Colors.COLOR_ACTIVE,
+        paddingVertical: hp(18),
+    },
+    iconGroupPrimary: {
+        height: hp(34),
+        width: wp(34),
+        borderRadius: wp(17),
+        backgroundColor: Colors.COLOR_ACTIVE,
     },
 
     photosLabel: { marginBottom: hp(8) },

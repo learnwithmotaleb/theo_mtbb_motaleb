@@ -5,7 +5,7 @@ import { FormInput } from '@/components/inputForm/inputForm';
 import { CustomButton } from '@/components/shared/CustomButton';
 import CustomLoader from '@/components/shared/CustomLoader';
 import { StepIndicator } from '@/components/shared/StepIndicator';
-import Toast, { showToast } from '@/components/shared/Toast';
+import { showToast } from '@/components/shared/Toast';
 import { Body3, Caption3, H1 } from '@/components/typo/Typography';
 import { FORM_FIELDS } from '@/components/ui/form';
 import { IMAGE_COMPONENTS } from '@/constants/image.index';
@@ -15,7 +15,7 @@ import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
 import { useSignupMutation } from '@/redux/services/authApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -32,6 +32,8 @@ export default function TakeEmailScreen() {
     const t = useT();
   const router = useRouter();
   const [signup, { isLoading }] = useSignupMutation();
+  // Set when signup says the email belongs to an active account (409).
+  const [emailTaken, setEmailTaken] = useState(false);
 
   const { values, errors, touched, handleChange, handleSubmit } = useForm({
     initialValues: {
@@ -55,6 +57,17 @@ export default function TakeEmailScreen() {
           }, 800);
         }
       } catch (err: any) {
+        // 409 = an active account already uses this email (a deleted
+        // account's email is released by the backend, so it never lands here).
+        if (err?.status === 409) {
+          setEmailTaken(true);
+          showToast(
+            t("An account with this email already exists. Please sign in instead."),
+            'error',
+            3000,
+          );
+          return;
+        }
         const message = getLocalizedAuthErrorMessage(
           err, t("Something went wrong. Please try again."),
         );
@@ -66,7 +79,6 @@ export default function TakeEmailScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.APP_BACKGROUND }}>
       {/* Toast — সবার উপরে */}
-      <Toast />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -124,13 +136,33 @@ export default function TakeEmailScreen() {
               </Body3>
               <FormInput
                 value={values[FORM_FIELDS.EMAIL]}
-                onChangeText={(text) => handleChange(FORM_FIELDS.EMAIL, text)}
+                onChangeText={(text) => {
+                  if (emailTaken) setEmailTaken(false);
+                  handleChange(FORM_FIELDS.EMAIL, text);
+                }}
                 type="email"
                 placeholder={t("Your Email")}
                 leftIcon={<EmailIcon size={16} color="#8C88A3" />}
                 error={errors[FORM_FIELDS.EMAIL]}
                 touched={touched[FORM_FIELDS.EMAIL]}
               />
+
+              {/* Email already in use: point the user to sign-in instead. */}
+              {emailTaken && (
+                <View style={styles.takenRow}>
+                  <Caption3 color={Colors.TEXT_COLOR} style={styles.takenText}>
+                    {t("An account with this email already exists. Please sign in instead.")}
+                  </Caption3>
+                  <Pressable
+                    onPress={() => router.replace('/(auth)/login' as any)}
+                    hitSlop={8}
+                  >
+                    <Caption3 color={Colors.BRAND_PRIMARY} style={styles.takenLink}>
+                      {t("Sign In")}
+                    </Caption3>
+                  </Pressable>
+                </View>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -194,6 +226,12 @@ const styles = StyleSheet.create({
   description: {
     marginBottom: hp(24),
   },
+  takenRow: {
+    marginTop: hp(10),
+    gap: hp(4),
+  },
+  takenText: { lineHeight: 18 },
+  takenLink: { textDecorationLine: 'underline' },
   fieldGroup: {
     marginBottom: hp(12),
   },

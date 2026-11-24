@@ -9,7 +9,7 @@ import { useReportConversation } from '@/components/shared/ReportConversation';
 import { ChatBubble, useConversation } from '@/hooks/useChat';
 import { AppImage } from '@/components/shared/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Animated,
     FlatList,
@@ -28,7 +28,7 @@ export default function CleanerChatScreen() {
     const insets = useSafeAreaInsets();
     const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
     const flatListRef = useRef<FlatList>(null);
-    const keyboardHeight = useRef(new Animated.Value(0)).current;
+    const [keyboardHeight] = useState(() => new Animated.Value(0));
 
     const {
         header,
@@ -98,8 +98,24 @@ export default function CleanerChatScreen() {
                 >
                     <LeftArrowIcon size={22} color={Colors.PRIMARY_TEXT} />
                 </Pressable>
-                <AppImage source={header.image} style={styles.headerAvatar} contentFit="cover" />
-                <Body6 color={Colors.PRIMARY_TEXT} style={{ flex: 1 }}>{header.name}</Body6>
+                {/* Avatar + name open the other person's profile. */}
+                <Pressable
+                    style={styles.headerPerson}
+                    disabled={!header.otherParticipantId}
+                    onPress={() =>
+                        router.push({
+                            pathname: '/cleaner/requests/host_profile',
+                            params: { hostId: header.otherParticipantId },
+                        } as any)
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={t("View profile")}
+                >
+                    <AppImage source={header.image} style={styles.headerAvatar} contentFit="cover" />
+                    <Body6 color={Colors.PRIMARY_TEXT} style={{ flex: 1 }} numberOfLines={1}>
+                        {header.name}
+                    </Body6>
+                </Pressable>
                 {/* Both stores require a way to flag abusive content from
                     inside the conversation itself. */}
                 <Pressable
@@ -208,6 +224,12 @@ const styles = StyleSheet.create({
         paddingVertical: hp(14),
     },
     backBtn: { marginRight: wp(4) },
+    headerPerson: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(10),
+    },
     headerAvatar: {
         width: wp(36),
         height: wp(36),

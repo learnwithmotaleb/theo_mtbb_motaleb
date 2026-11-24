@@ -12,7 +12,6 @@ import SectionTitle from '@/components/shared/SectionTitle';
 import { Body4, Body5, Body6, Body7, Caption2, Caption3, Caption5 } from '@/components/typo/Typography';
 import { showToast } from '@/components/shared/Toast';
 import { Colors } from '@/constants/theme';
-import { getApiErrorMessage } from '@/lib/apiError';
 import { cleaningWindow, formatClock, toDateKey } from '@/lib/datetime';
 
 import { accommodationPhoto, avatarSource, personName } from '@/lib/mappers';
@@ -20,7 +19,6 @@ import { computeSchedulePrice } from '@/lib/pricing';
 
 import { useGetAccommodationByIdQuery } from '@/redux/services/accommodationApi';
 import { useGetAccommodationCleanersQuery } from '@/redux/services/assignmentApi';
-import { useCreateScheduleMutation } from '@/redux/services/scheduleApi';
 import { AppImage } from '@/components/shared/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
@@ -93,7 +91,6 @@ export default function RecommendedCleaningScreen() {
     const { data: assignments } = useGetAccommodationCleanersQuery(accommodationId, {
         skip: !accommodationId,
     });
-    const [createSchedule, { isLoading: isCreating }] = useCreateScheduleMutation();
 
     // The cleaner the host came in with, else the accepted primary on this
     // accommodation. Only an accepted assignment can be scheduled.
@@ -161,32 +158,24 @@ export default function RecommendedCleaningScreen() {
         [accommodation, params.date, arrival, departure, cleaner, t, formatDate],
     );
 
-    // Creates the schedule, then hands the payment screen its id. The cleaner
-    // has to accept before the host can actually pay.
-    const handleNext = async () => {
+    // « Suivant » only opens the payment page with the request's details.
+    // Nothing is sent to the cleaner until « Confirmer » there.
+    const handleNext = () => {
         if (!accommodationId) return;
         if (!assignment) {
             showToast(t("Assign a cleaner to this accommodation first."), 'error');
             return;
         }
-        try {
-            const schedule = await createSchedule({
+        router.push({
+            pathname: '/host/payment/payment_type',
+            params: {
                 accommodationId,
                 cleanerId: (cleaner?._id as string) ?? assignment._id,
                 date: dateKey,
-                // Guest check-out = cleaner arrives; next check-in = cleaner
-                // leaves (same convention as the manual scheduling screen).
-                checkOutTime: arrival,
-                checkInTime: departure,
-            }).unwrap();
-
-            router.push({
-                pathname: '/host/payment/payment_type',
-                params: { scheduleId: schedule._id, accommodationId },
-            } as any);
-        } catch (err) {
-            showToast(getApiErrorMessage(err, t("Could not create the schedule.")), 'error');
-        }
+                arrival,
+                departure,
+            },
+        } as any);
     };
 
     if (isLoading && !accommodation) {
@@ -367,9 +356,9 @@ export default function RecommendedCleaningScreen() {
             {/* Next button */}
             <View style={cleanStyles.footer}>
                 <CustomButton
-                    title={isCreating ? t("Scheduling...") : t("Next")}
+                    title={t("Next")}
                     onPress={handleNext}
-                    disabled={!cleanerAssigned || isCreating}
+                    disabled={!cleanerAssigned}
                     width="100%"
                     backgroundColor={cleanerAssigned ? Colors.PRIMARY_TEXT : Colors.BORDER_COLOR}
                     color="#fff"

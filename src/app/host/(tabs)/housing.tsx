@@ -2,10 +2,12 @@ import { SkeletonList } from '@/components/shared/Skeleton';
 import { useT } from '@/i18n';
 import { LocationIcon } from '@/assets/icons/cleaner_icon/LocationIcon';
 import { RightAngleIcon } from '@/assets/icons/common_icon/RightAngleIcon';
+import { PlusIcon } from '@/assets/icons/host_icon/PlusIcon';
 import { Body2, Caption1, Caption3, Caption4, H2 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 import { toHousingItem } from '@/lib/mappers';
+import { getApiErrorMessage } from '@/lib/apiError';
 import { useGetAccommodationsQuery } from '@/redux/services/accommodationApi';
 import { HousingItem } from '@/types/taskStatus';
 import { AppImage } from '@/components/shared/AppImage';
@@ -96,7 +98,7 @@ export default function HousingScreen() {
 
     // Show ALL accommodations regardless of cleaner assignment or calendar
     // connection status — every property must always appear here.
-    const { data, isLoading, refetch } = useGetAccommodationsQuery(
+    const { data, isLoading, isError, error, refetch } = useGetAccommodationsQuery(
         { page: 1, limit: 50 },
         { refetchOnMountOrArgChange: true },
     );
@@ -133,8 +135,9 @@ export default function HousingScreen() {
                         router.push('/host/housing/general_information' as any);
                     }}
                 >
-                    <Caption3 color={Colors.PRIMARY_TEXT} style={styles.plusText}>+</Caption3>
-                    {/* <PlusCircleIcon size={24}/> */}
+                    {/* SVG, not a "+" character: a font glyph carries ascent/descent
+                        padding and never sits exactly in the middle. */}
+                    <PlusIcon size={wp(22)} color={Colors.PRIMARY_TEXT} />
                 </Pressable>
             </View>
 
@@ -148,6 +151,20 @@ export default function HousingScreen() {
                     ListEmptyComponent={
                         isLoading ? (
                             <SkeletonList count={3} />
+                        ) : isError ? (
+                            // A failed request is not "no property": saying so
+                            // made hosts think their property was lost.
+                            <View style={styles.errorBox}>
+                                <Caption1 color={Colors.PRIMARY_TEXT}>
+                                    {t("Your properties could not be loaded.")}
+                                </Caption1>
+                                <Caption3 color={Colors.TEXT_COLOR} style={{ marginTop: hp(4) }}>
+                                    {getApiErrorMessage(error, t("Check your connection and try again."))}
+                                </Caption3>
+                                <Pressable onPress={() => refetch()} style={styles.retryBtn} hitSlop={8}>
+                                    <Caption1 color={Colors.BRAND_PRIMARY}>{t("Try again")}</Caption1>
+                                </Pressable>
+                            </View>
                         ) : (
                             <Caption3 color={Colors.TEXT_COLOR}>
                                 {t("No accommodation yet — tap + to add your first one.")}
@@ -188,6 +205,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: wp(20),
         paddingVertical: hp(20),
     },
+    errorBox: {
+        padding: wp(14),
+        borderRadius: wp(12),
+        backgroundColor: '#FF383C14',
+        borderWidth: 1,
+        borderColor: '#FF383C40',
+    },
+    retryBtn: { marginTop: hp(10), alignSelf: 'flex-start' },
     plusBtn: {
         width: wp(40),
         height: wp(40),
@@ -198,7 +223,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: Colors.INPUT_BACKGROUND,
     },
-    plusText: { fontSize: 24, lineHeight: 28 },
     content: { flex: 1, paddingHorizontal: wp(20) },
     list: { paddingBottom: hp(120) },
     card: {

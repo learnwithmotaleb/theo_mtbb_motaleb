@@ -1,6 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-import { hasFloorAndElevator, type AccommodationType } from '@/constants/accommodation';
+import { clearAuth } from './authSlice';
+
+import { hasFloorAndElevator, usesKeyBox, type AccommodationType } from '@/constants/accommodation';
 import { POSTAL_CODE_PATTERN } from '@/lib/frenchGeo';
 
 import type { PickedPhoto } from '../services/accommodationApi';
@@ -29,6 +31,8 @@ export interface AccommodationDraft {
   /** null until answered; only asked for apartments and studios. */
   hasElevator: boolean | null;
   cleaningRate: string;
+  /** Average cleaning time in minutes ("150"); '' = not set. */
+  cleaningDuration: string;
   notes: string;
 
   // Step 3 — photos
@@ -63,6 +67,7 @@ const initialState: AccommodationDraft = {
   floor: '',
   hasElevator: null,
   cleaningRate: '',
+  cleaningDuration: '',
   notes: '',
 
   photos: [],
@@ -94,6 +99,10 @@ const accommodationDraftSlice = createSlice({
     ) => ({ ...initialState, ...action.payload }),
     resetDraft: () => initialState,
   },
+  // A draft never carries over to the next account on this phone.
+  extraReducers: (builder) => {
+    builder.addCase(clearAuth, () => initialState);
+  },
 });
 
 export const { updateDraft, setDraftPhotos, loadDraft, resetDraft } =
@@ -120,9 +129,12 @@ export const draftToFields = (draft: AccommodationDraft) => {
   floor: inBuilding ? draft.floor.trim() : '',
   hasElevator: inBuilding ? Boolean(draft.hasElevator) : false,
   cleaningRate: draft.cleaningRate,
+  // Minutes; the backend ignores an empty value.
+  cleaningDuration: draft.cleaningDuration,
   notes: draft.notes.trim(),
   keys: draft.keys,
-  accessCode: draft.accessCode.trim(),
+  // Hand delivery has no code: '' clears one saved while it was a key box.
+  accessCode: usesKeyBox(draft.keys) ? draft.accessCode.trim() : '',
   instructions: draft.instructions.trim(),
   frequency: draft.frequency,
   checkInTime: draft.checkInTime,
@@ -149,6 +161,9 @@ export const validateDraft = (draft: AccommodationDraft): string | null => {
   }
   if (!draft.checkInTime || !draft.checkOutTime) {
     return 'Choose the check-in and check-out times.';
+  }
+  if (draft.checkOutTime >= draft.checkInTime) {
+    return 'The next guests must arrive after the departure time.';
   }
   return null;
 };

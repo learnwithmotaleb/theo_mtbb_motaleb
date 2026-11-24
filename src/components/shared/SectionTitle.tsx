@@ -10,12 +10,15 @@ interface SectionTitleProps {
     title?: string;
     containerStyle?: StyleProp<ViewStyle>;
     showBackButton?: boolean;
+    /** Optional action on the right (e.g. a "⋮" menu). */
+    rightSlot?: React.ReactNode;
 }
 
 const SectionTitle: React.FC<SectionTitleProps> = ({
     title,
     containerStyle,
     showBackButton = true,
+    rightSlot,
 }) => {
     const router = useRouter();
 
@@ -40,8 +43,8 @@ const SectionTitle: React.FC<SectionTitleProps> = ({
                 {title}
             </Body2>
 
-            {/* Right spacer — keeps title centered */}
-            <View style={styles.sideSlot} />
+            {/* Right slot — same width as the left, keeps the title centered */}
+            <View style={[styles.sideSlot, styles.rightSlot]}>{rightSlot}</View>
         </View>
     );
 };
@@ -59,6 +62,9 @@ const styles = StyleSheet.create({
     },
     sideSlot: {
         width: wp(40),
+    },
+    rightSlot: {
+        alignItems: "flex-end",
     },
     backIconContainer: {},
     headerTitle: {

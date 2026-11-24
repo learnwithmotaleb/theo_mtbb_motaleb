@@ -13,8 +13,9 @@ import {
     useCreateAccommodationMutation,
 } from '@/redux/services/accommodationApi';
 import { draftToFields, validateDraft } from '@/redux/slices/accommodationDraftSlice';
+import { formatDurationMinutes } from '@/lib/datetime';
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     Pressable,
     ScrollView,
@@ -60,6 +61,9 @@ export default function SummaryScreen() {
     const router = useRouter();
     const draft = useAppSelector((state) => state.accommodationDraft);
     const [createAccommodation, { isLoading }] = useCreateAccommodationMutation();
+    // Kept on screen (not only a toast): a failed save must never look like
+    // a finished one, or the host leaves thinking the property exists.
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const summary = useMemo(
         () => [
@@ -92,10 +96,7 @@ export default function SummaryScreen() {
             },
             {
                 label: t("Average duration"),
-                value: (draft.instructions ?? '').replace(
-                    /^Average cleaning duration:\s*/i,
-                    `${t("Average cleaning duration")}: `
-                ) || t("Not set"),
+                value: formatDurationMinutes(Number(draft.cleaningDuration)) || t("Not set"),
                 route: '/host/onboarding/cleaning_duration',
             },
             {
@@ -113,19 +114,25 @@ export default function SummaryScreen() {
     const handleConfirm = async () => {
         const problem = validateDraft(draft);
         if (problem) {
+            setSaveError(t(problem));
             showToast(t(problem), 'error');
             return;
         }
+        setSaveError(null);
         try {
             await createAccommodation(
                 buildAccommodationForm(draftToFields(draft), draft.photos),
             ).unwrap();
-            router.push('/host/onboarding/congratulations');
+            // replace: the back gesture must not reach Confirm again and
+            // create the same property twice.
+            router.replace('/host/onboarding/congratulations');
         } catch (err) {
-            showToast(
-                getApiErrorMessage(err, t("Could not create the accommodation.")),
-                'error',
+            const message = getApiErrorMessage(
+                err,
+                t("Your property could not be saved. Check your connection and try again."),
             );
+            setSaveError(message);
+            showToast(message, 'error');
         }
     };
 
@@ -155,9 +162,25 @@ export default function SummaryScreen() {
             </ScrollView>
 
             <View style={styles.footer}>
+                {!!saveError && (
+                    <View style={styles.errorBox} accessibilityLiveRegion="polite">
+                        <Body5 color={Colors.COLOR_DANGER}>
+                            {t("Property not saved")}
+                        </Body5>
+                        <Caption1 color={Colors.PRIMARY_TEXT} style={{ marginTop: hp(4) }}>
+                            {saveError}
+                        </Caption1>
+                    </View>
+                )}
                 <CustomButton
                     onPress={handleConfirm}
-                    title={t("Confirm and continue")}
+                    title={
+                        isLoading
+                            ? t("Saving your property...")
+                            : saveError
+                              ? t("Try again")
+                              : t("Confirm and continue")
+                    }
                     backgroundColor={Colors.BG_BLACK}
                     width="100%"
                     height={hp(54)}
@@ -210,6 +233,14 @@ const styles = StyleSheet.create({
     rowValue: {
         flex: 1,
         marginRight: wp(12),
+    },
+    errorBox: {
+        padding: wp(14),
+        marginBottom: hp(10),
+        borderRadius: wp(12),
+        backgroundColor: '#FF383C14',
+        borderWidth: 1,
+        borderColor: '#FF383C40',
     },
     footer: {
         // paddingBottom: hp(24),

@@ -8,14 +8,21 @@ import { Body5, Body6, Caption1, Caption2, Caption3, Caption4, Caption5 } from '
 import { Colors } from '@/constants/theme';
 import { accommodationPhoto, avatarSource, personName } from '@/lib/mappers';
 
-import { useGetAccommodationByIdQuery } from '@/redux/services/accommodationApi';
+import {
+    useDeleteAccommodationMutation,
+    useGetAccommodationByIdQuery,
+} from '@/redux/services/accommodationApi';
 import { useGetAccommodationCleanersQuery } from '@/redux/services/assignmentApi';
-import { useGetConnectionsQuery } from '@/redux/services/calendarApi';
 import { elevatorText, hasFloorAndElevator, keysText, roomsText } from '@/constants/accommodation';
 import { AppImage } from '@/components/shared/AppImage';
+import { showToast } from '@/components/shared/Toast';
+import { getApiErrorMessage } from '@/lib/apiError';
+import { ThreeDotsIcon } from '@/assets/icons/host_icon/ThreeDots';
+import { EditPenIcon } from '@/assets/icons/common_icon/EditPenIcon';
+import { TrashIcon } from '@/assets/icons/common_icon/TrashIcon';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
@@ -40,8 +47,49 @@ export default function AccommodationDetailsViewScreen() {
     // Assignments carry who is primary and whether they accepted, which the
     // accommodation payload alone does not always spell out.
     const { data: assignments } = useGetAccommodationCleanersQuery(id, { skip: !id });
-    const { data: connections } = useGetConnectionsQuery(id, { skip: !id });
-    const hasCalendar = (connections ?? []).some((c) => c.isActive !== false);
+    const [deleteAccommodation, { isLoading: isDeleting }] = useDeleteAccommodationMutation();
+    const [menuVisible, setMenuVisible] = useState(false);
+
+    const goToEdit = () => {
+        setMenuVisible(false);
+        router.push({
+            pathname: '/host/housing/edit_accommodation',
+            params: { id },
+        } as any);
+    };
+
+    // Same confirmation as « Se déconnecter »: a native alert with a
+    // destructive action, so a property is never deleted by accident.
+    const confirmDelete = () => {
+        setMenuVisible(false);
+        Alert.alert(t('Delete property'), t('Are you sure you want to delete this property?'), [
+            { text: t('Cancel'), style: 'cancel' },
+            {
+                text: t('Delete'),
+                style: 'destructive',
+                onPress: async () => {
+                    if (isDeleting) return;
+                    try {
+                        await deleteAccommodation(id).unwrap();
+                        showToast(t('Property deleted'), 'success');
+                        router.dismissTo('/host/(tabs)/housing' as any);
+                    } catch (err) {
+                        showToast(
+                            getApiErrorMessage(err, t('Could not delete the property.')),
+                            'error',
+                        );
+                    }
+                },
+            },
+        ]);
+    };
+
+    // Adding a cleaner: the first one becomes primary, later ones substitutes.
+    const goToAddCleaner = (role: 'primary' | 'substitute') =>
+        router.push({
+            pathname: '/host/home/add_houskeeper',
+            params: { accommodationId: id, role },
+        } as any);
 
     // The primary cleaner heads the card; a substitute stands in when there is
     // no primary yet.
@@ -114,7 +162,42 @@ export default function AccommodationDetailsViewScreen() {
 
     return (
         <SafeAreaView style={styles.safe}>
-            <SectionTitle title={t("Accommodation Details")} />
+            <SectionTitle
+                title={t("Accommodation Details")}
+                rightSlot={
+                    <Pressable
+                        onPress={() => setMenuVisible(true)}
+                        hitSlop={12}
+                        style={styles.dotsBtn}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('Options')}
+                    >
+                        <ThreeDotsIcon color={Colors.PRIMARY_TEXT} />
+                    </Pressable>
+                }
+            />
+
+            {/* « ⋮ » menu: edit or delete the property */}
+            <Modal
+                visible={menuVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setMenuVisible(false)}
+            >
+                <Pressable style={styles.menuOverlay} onPress={() => setMenuVisible(false)}>
+                    <View style={styles.menu}>
+                        <Pressable style={styles.menuItem} onPress={goToEdit}>
+                            <EditPenIcon color={Colors.PRIMARY_TEXT} />
+                            <Caption1 color={Colors.PRIMARY_TEXT}>{t('Edit property')}</Caption1>
+                        </Pressable>
+                        <View style={styles.menuDivider} />
+                        <Pressable style={styles.menuItem} onPress={confirmDelete}>
+                            <TrashIcon />
+                            <Caption1 color={Colors.COLOR_DANGER}>{t('Delete property')}</Caption1>
+                        </Pressable>
+                    </View>
+                </Pressable>
+            </Modal>
 
             <ScrollView
                 contentContainerStyle={styles.scroll}
@@ -230,9 +313,34 @@ export default function AccommodationDetailsViewScreen() {
                             </Caption5>
                         </View>
                     ) : (
-                        <View style={styles.cleanerSection}>
-                            <Caption3 color={Colors.TEXT_COLOR}>{t("No Cleaner Assigned")}</Caption3>
+                        // No cleaner yet: a clearly visible call-to-action,
+                        // right where the cleaner will appear.
+                        <View style={[styles.cleanerSection, styles.noCleanerCard]}>
+                            <Caption3 color={Colors.COLOR_DANGER} style={{ marginBottom: hp(10) }}>
+                                {t("No Cleaner Assigned")}
+                            </Caption3>
+                            <CustomButton
+                                title={t("Assign a cleaner")}
+                                onPress={() => goToAddCleaner('primary')}
+                                width="100%"
+                                backgroundColor={Colors.COLOR_DANGER}
+                                color={Colors.TEXT_WHITE}
+                                borderRadius={wp(8)}
+                                height={hp(46)}
+                            />
                         </View>
+                    )}
+
+                    {/* Once a cleaner is there, more can still be added —
+                        from the same place, but as a discreet link. */}
+                    {(showCleaner || data.pendingCleaner) && (
+                        <Pressable
+                            style={styles.addMoreBtn}
+                            onPress={() => goToAddCleaner('substitute')}
+                            accessibilityRole="button"
+                        >
+                            <Caption3 color={Colors.PRIMARY_TEXT}>+ {t("Add a cleaner")}</Caption3>
+                        </Pressable>
                     )}
                 </View>
 
@@ -281,75 +389,6 @@ export default function AccommodationDetailsViewScreen() {
                 </View>
 
             </ScrollView>
-
-            {/* Footer */}
-            <View style={styles.footer}>
-                {/*
-                  The next step follows the setup order: 1. assign a cleaner;
-                  2. once she accepted, connect the iCal calendar (it feeds the
-                  recommended cleanings) or create a cleaning by hand.
-                */}
-                {!showCleaner && !data.pendingCleaner && (
-                    <CustomButton
-                        title={t("Assign a cleaner")}
-                        onPress={() =>
-                            router.push({
-                                pathname: '/host/home/add_houskeeper',
-                                params: { accommodationId: data.id },
-                            } as any)
-                        }
-                        width="100%"
-                        backgroundColor={Colors.PRIMARY_TEXT}
-                        color={Colors.TEXT_WHITE}
-                        borderRadius={wp(8)}
-                        height={hp(52)}
-                    />
-                )}
-                {showCleaner && !hasCalendar && (
-                    <CustomButton
-                        title={t("Connect the calendar (iCal)")}
-                        onPress={() =>
-                            router.push({
-                                pathname: '/host/planning/connect_calendar',
-                                params: { propertyId: data.id },
-                            } as any)
-                        }
-                        width="100%"
-                        backgroundColor={Colors.PRIMARY_TEXT}
-                        color={Colors.TEXT_WHITE}
-                        borderRadius={wp(8)}
-                        height={hp(52)}
-                    />
-                )}
-                {showCleaner && (
-                    <CustomButton
-                        title={t("Create a cleaning")}
-                        onPress={() =>
-                            router.push({
-                                pathname: '/host/home/schedule_cleaning',
-                                params: { accommodationId: data.id },
-                            } as any)
-                        }
-                        width="100%"
-                        backgroundColor={hasCalendar ? Colors.PRIMARY_TEXT : Colors.INPUT_BACKGROUND}
-                        color={hasCalendar ? Colors.TEXT_WHITE : Colors.PRIMARY_TEXT}
-                        borderColor={Colors.BORDER_COLOR}
-                        borderRadius={wp(8)}
-                        height={hp(52)}
-                    />
-                )}
-                <Pressable
-                    style={styles.editBtn}
-                    onPress={() =>
-                        router.push({
-                            pathname: '/host/housing/edit_accommodation',
-                            params: { id: data.id },
-                        } as any)
-                    }
-                >
-                    <Caption3 color={Colors.PRIMARY_TEXT}>{t("Edit information")}</Caption3>
-                </Pressable>
-            </View>
         </SafeAreaView>
     );
 }
@@ -443,16 +482,54 @@ const styles = StyleSheet.create({
         padding: wp(12),
         marginBottom: hp(16),
     },
-    footer: {
-        // paddingVertical: hp(16),
-        gap: hp(10),
-        backgroundColor: Colors.APP_BACKGROUND,
-    },
-    editBtn: {
-        alignItems: 'center',
+    noCleanerCard: {
         paddingVertical: hp(14),
+        borderWidth: 1,
+        borderColor: Colors.COLOR_DANGER,
+        backgroundColor: '#FF383C0F',
+    },
+    addMoreBtn: {
+        alignItems: 'center',
+        marginTop: hp(8),
+        paddingVertical: hp(10),
         borderRadius: wp(8),
         borderWidth: 1,
         borderColor: Colors.BORDER_COLOR,
+    },
+    dotsBtn: {
+        width: wp(32),
+        height: wp(32),
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    menuOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.15)',
+        alignItems: 'flex-end',
+        paddingTop: hp(95),
+        paddingRight: wp(20),
+    },
+    menu: {
+        minWidth: wp(200),
+        backgroundColor: Colors.APP_BACKGROUND,
+        borderRadius: wp(12),
+        paddingVertical: hp(4),
+        shadowColor: '#000',
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 6,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(10),
+        paddingHorizontal: wp(16),
+        paddingVertical: hp(12),
+    },
+    menuDivider: {
+        height: 1,
+        backgroundColor: Colors.BORDER_COLOR,
+        marginHorizontal: wp(12),
     },
 });

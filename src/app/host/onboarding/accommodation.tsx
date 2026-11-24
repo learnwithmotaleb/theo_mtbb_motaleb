@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+import { UPLOAD_PICKER_OPTIONS } from '@/lib/photoUpload';
 
 export default function AccommodationScreen() {
     const t = useT();
@@ -42,10 +43,9 @@ export default function AccommodationScreen() {
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
+            ...UPLOAD_PICKER_OPTIONS,
             allowsEditing: true,
             aspect: [16, 9],
-            quality: 0.8,
         });
         if (result.canceled || !result.assets?.length) return;
 
@@ -117,7 +117,7 @@ export default function AccommodationScreen() {
                     </View>
                     {nameError ? (
                         <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                            {nameError}
+                            {t(nameError)}
                         </Caption1>
                     ) : null}
 

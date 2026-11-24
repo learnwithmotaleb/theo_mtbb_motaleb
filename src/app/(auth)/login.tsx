@@ -6,7 +6,7 @@ import { AuthHeading } from '@/components/shared/AuthHeading';
 import { CustomButton } from '@/components/shared/CustomButton';
 import CustomLoader from '@/components/shared/CustomLoader';
 import SectionTitle from '@/components/shared/SectionTitle';
-import Toast, { showToast } from '@/components/shared/Toast';
+import { showToast } from '@/components/shared/Toast';
 import { Body3, Body6, Caption3 } from '@/components/typo/Typography';
 import { FORM_FIELDS } from '@/components/ui/form';
 import { IMAGE_COMPONENTS } from '@/constants/image.index';
@@ -76,7 +76,6 @@ export default function LoginScreen() {
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.APP_BACKGROUND }}>
-            <Toast />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.scrollContent}

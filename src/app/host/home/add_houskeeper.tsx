@@ -34,8 +34,12 @@ export default function AddHousekeeperScreen() {
     const router = useRouter();
     // Opened from a property's page: that property is the one being staffed,
     // so the "choose a property" step is skipped entirely.
-    const { accommodationId: presetAccommodationId } =
-        useLocalSearchParams<{ accommodationId?: string }>();
+    // `role=substitute` when the property already has a cleaner: the new one
+    // joins as a substitute instead of taking over the primary slot.
+    const { accommodationId: presetAccommodationId, role: presetRole } =
+        useLocalSearchParams<{ accommodationId?: string; role?: string }>();
+    const inviteRole: 'primary' | 'substitute' =
+        presetRole === 'substitute' ? 'substitute' : 'primary';
     const [step, setStep] = useState<Step>('list');
     const [selectedHK, setSelectedHK] = useState<Housekeeper | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
@@ -90,7 +94,7 @@ export default function AddHousekeeperScreen() {
             await assignCleaner({
                 accommodationId,
                 cleanerId: selectedHK.id,
-                role: 'primary',
+                role: inviteRole,
             }).unwrap();
             setModalVisible(true);
         } catch (err) {

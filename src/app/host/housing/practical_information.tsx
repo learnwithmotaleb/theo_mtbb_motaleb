@@ -4,13 +4,18 @@ import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { StepIndicator } from '@/components/shared/StepIndicator';
 import { Body2, Caption3 } from '@/components/typo/Typography';
-import { showToast } from '@/components/shared/Toast';
 import { Colors } from '@/constants/theme';
-import { KEY_OPTIONS } from '@/constants/accommodation';
+import {
+    ACCESS_CODE_MAX_LENGTH,
+    arrivalOptionsAfter,
+    DEPARTURE_TIME_OPTIONS,
+    KEY_OPTIONS,
+    usesKeyBox,
+} from '@/constants/accommodation';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     ScrollView,
     StyleSheet,
@@ -20,16 +25,25 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
-const TIME_OPTIONS = [
-    '08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
-    '14:00', '15:00', '16:00', '17:00', '18:00', '20:00',
+const FREQUENCY_OPTIONS = [
+    'Every day',
+    'Every week',
+    'Every 2 weeks',
+    'Every month',
+    'On demand',
 ];
+
+type Field = 'keys' | 'checkOutTime' | 'checkInTime';
+// Top-to-bottom order, so Continue scrolls to the first problem.
+const FIELD_ORDER: Field[] = ['keys', 'checkOutTime', 'checkInTime'];
 
 export default function PracticalInformationScreen() {
     const t = useT();
     const router = useRouter();
     const dispatch = useAppDispatch();
     const draft = useAppSelector((state) => state.accommodationDraft);
+    const scrollRef = useRef<ScrollView>(null);
+    const fieldY = useRef<Partial<Record<Field, number>>>({});
 
     const [form, setForm] = useState({
         keys: draft.keys,
@@ -41,24 +55,61 @@ export default function PracticalInformationScreen() {
         checkOutTime: draft.checkOutTime,
         checkInTime: draft.checkInTime,
     });
+    // Shown under each field (a toast alone was easy to miss).
+    const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+
+    const update = (patch: Partial<typeof form>) => {
+        setForm((prev) => ({ ...prev, ...patch }));
+        setErrors((prev) => {
+            const next = { ...prev };
+            (Object.keys(patch) as Field[]).forEach((key) => delete next[key]);
+            return next;
+        });
+    };
+
+    const changeDeparture = (checkOutTime: string) => {
+        // An arrival that no longer comes after the departure is cleared
+        // rather than kept invalid.
+        const keepArrival = form.checkInTime && form.checkInTime > checkOutTime;
+        update({ checkOutTime, ...(keepArrival ? {} : { checkInTime: '' }) });
+    };
+
+    const validate = (): Partial<Record<Field, string>> => {
+        const found: Partial<Record<Field, string>> = {};
+        if (!form.keys) found.keys = t("Choose where the keys are.");
+        if (!form.checkOutTime) found.checkOutTime = t("Choose the guest departure time.");
+        if (!form.checkInTime) {
+            found.checkInTime = t("Choose the next guests' arrival time.");
+        } else if (form.checkOutTime && form.checkInTime <= form.checkOutTime) {
+            // "HH:mm" strings compare in clock order. The cleaning happens
+            // between the guest leaving and the next guest arriving.
+            found.checkInTime = t("The next guests must arrive after the departure time.");
+        }
+        return found;
+    };
 
     const handleContinue = () => {
-        if (!form.keys) {
-            showToast(t("Choose where the keys are."), 'error');
+        const found = validate();
+        setErrors(found);
+        const first = FIELD_ORDER.find((field) => found[field]);
+        if (first) {
+            const y = fieldY.current[first];
+            if (y !== undefined) {
+                scrollRef.current?.scrollTo({ y: Math.max(0, y - hp(20)), animated: true });
+            }
             return;
         }
-        if (!form.checkInTime || !form.checkOutTime) {
-            showToast(t("Choose the check-in and check-out times."), 'error');
-            return;
-        }
-        // "HH:mm" strings compare in clock order. The cleaning happens between
-        // the guest leaving and the next guest arriving.
-        if (form.checkOutTime >= form.checkInTime) {
-            showToast(t("The guest check-out must be before the next check-in."), 'error');
-            return;
-        }
-        dispatch(updateDraft(form));
+        dispatch(
+            updateDraft({
+                ...form,
+                accessCode: usesKeyBox(form.keys) ? form.accessCode : '',
+            }),
+        );
         router.push('/host/housing/accommodation_summary' as any);
+    };
+
+    const remember = (field: Field) => (event: { nativeEvent: { layout: { y: number } } }) => {
+        fieldY.current[field] = event.nativeEvent.layout.y;
     };
 
     return (
@@ -73,6 +124,7 @@ export default function PracticalInformationScreen() {
                 <StepIndicator totalSteps={5} currentStep={4} activeColor='#0088FF' inactiveColor='#0088FF' />
             </View>
             <ScrollView
+                ref={scrollRef}
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
@@ -83,6 +135,10 @@ export default function PracticalInformationScreen() {
                 <Caption3 color={Colors.TEXT_COLOR} style={styles.subtitle}>
                     {t("Add useful information for the service visits.")}
                 </Caption3>
+                <Caption3 color={Colors.TEXT_COLOR} style={styles.legend}>
+                    <Caption3 color={Colors.COLOR_DANGER}>✱ </Caption3>
+                    {t("Required field")}
+                </Caption3>
 
                 {/* Keys */}
                 <FormDropdown
@@ -90,24 +146,35 @@ export default function PracticalInformationScreen() {
                     placeholder={t("Choose")}
                     value={form.keys}
                     options={[...KEY_OPTIONS]}
-                    onChange={(v) => setForm({ ...form, keys: v })}
+                    onChange={(v) => update({ keys: v })}
+                    required
+                    error={errors.keys}
+                    onLayout={remember('keys')}
                 />
 
-                {/* Access code */}
-                <View style={styles.fieldGroup}>
-                    <Caption3 color={Colors.PRIMARY_TEXT} style={styles.label}>
-                        {t("Access code (optional)")}
-                    </Caption3>
-                    <View style={styles.inputBox}>
-                        <TextInput
-                            style={[styles.input, { flex: 1 }]}
-                            placeholder={t("Ex: 1234 or Gate digital code")}
-                            placeholderTextColor={Colors.TEXT_COLOR}
-                            value={form.accessCode}
-                            onChangeText={(v) => setForm({ ...form, accessCode: v })}
-                        />
+                {/* Lockbox code — only meaningful with a key box */}
+                {usesKeyBox(form.keys) && (
+                    <View style={styles.fieldGroup}>
+                        <Caption3 color={Colors.PRIMARY_TEXT} style={styles.label}>
+                            {t("Key box code (optional)")}
+                        </Caption3>
+                        <View style={styles.inputBox}>
+                            <TextInput
+                                style={[styles.input, { flex: 1 }]}
+                                placeholder={t("Ex: 1234 or Gate digital code")}
+                                placeholderTextColor={Colors.TEXT_COLOR}
+                                value={form.accessCode}
+                                maxLength={ACCESS_CODE_MAX_LENGTH}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                onChangeText={(v) => update({ accessCode: v })}
+                            />
+                        </View>
+                        <Caption3 color={Colors.TEXT_COLOR} style={styles.helper}>
+                            {t("Only cleaners whose request you accept can see this code.")}
+                        </Caption3>
                     </View>
-                </View>
+                )}
 
                 {/* Specific instructions */}
                 <View style={styles.fieldGroup}>
@@ -121,27 +188,19 @@ export default function PracticalInformationScreen() {
                             placeholderTextColor={Colors.TEXT_COLOR}
                             multiline
                             value={form.instructions}
-                            onChangeText={(v) => setForm({ ...form, instructions: v })}
+                            onChangeText={(v) => update({ instructions: v })}
                             textAlignVertical="top"
                         />
                     </View>
                 </View>
 
                 {/* Frequency */}
-
-
                 <FormDropdown
                     label={t("Usual frequency")}
                     placeholder={t("Choose (optional)")}
                     value={form.frequency}
-                    options={[
-                        'Every day',
-                        'Every week',
-                        'Every 2 weeks',
-                        'Every month',
-                        'On demand',
-                    ]}
-                    onChange={(v) => setForm({ ...form, frequency: v })}
+                    options={FREQUENCY_OPTIONS}
+                    onChange={(v) => update({ frequency: v })}
                 />
 
                 {/* Guest check-out — when a cleaning can start */}
@@ -149,9 +208,12 @@ export default function PracticalInformationScreen() {
                     label={t("Guest check-out time")}
                     placeholder="--:--"
                     value={form.checkOutTime}
-                    options={TIME_OPTIONS}
+                    options={DEPARTURE_TIME_OPTIONS}
                     getLabel={(v) => v}
-                    onChange={(v) => setForm({ ...form, checkOutTime: v })}
+                    onChange={changeDeparture}
+                    required
+                    error={errors.checkOutTime}
+                    onLayout={remember('checkOutTime')}
                 />
 
                 {/* Next guest check-in — when a cleaning must be finished */}
@@ -159,9 +221,19 @@ export default function PracticalInformationScreen() {
                     label={t("Next guest check-in time")}
                     placeholder="--:--"
                     value={form.checkInTime}
-                    options={TIME_OPTIONS}
+                    options={arrivalOptionsAfter(form.checkOutTime)}
                     getLabel={(v) => v}
-                    onChange={(v) => setForm({ ...form, checkInTime: v })}
+                    onChange={(v) => update({ checkInTime: v })}
+                    required
+                    error={errors.checkInTime}
+                    hint={
+                        form.checkOutTime
+                            ? t("Times after {time} only: the cleaning happens in between.", {
+                                  time: form.checkOutTime,
+                              })
+                            : null
+                    }
+                    onLayout={remember('checkInTime')}
                 />
             </ScrollView>
 
@@ -189,9 +261,11 @@ const styles = StyleSheet.create({
         textAlign: "center"
     },
     subtitle: {
-        marginBottom: hp(24),
+        marginBottom: hp(12),
         textAlign: "center"
     },
+    legend: { marginBottom: hp(16) },
+    helper: { marginTop: hp(6) },
     fieldGroup: { marginBottom: hp(20) },
     label: { marginBottom: hp(8), fontFamily: 'Poppins_500Medium' },
     inputBox: {

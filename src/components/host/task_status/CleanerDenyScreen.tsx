@@ -15,10 +15,16 @@ import { hp, wp } from '../../../../utils/responsiveDevice';
 export function CleanerDenyScreen({
     data,
     onInvite,
+    variant = 'refused',
 }: {
     data: TaskStatusScreenData['refused'];
     /** Send this accommodation's request to another nearby housekeeper. */
     onInvite?: (cleanerId: string) => void;
+    /**
+     * Why a new cleaner is needed: refused the request, never answered
+     * ("expired"), or ended the collaboration ("left").
+     */
+    variant?: 'refused' | 'expired' | 'left';
 }) {
     const t = useT();
     const router = useRouter();
@@ -34,7 +40,12 @@ export function CleanerDenyScreen({
                     <Body7 color={Colors.COLOR_DANGER} style={{ fontSize: 28, fontWeight: "900" }}>✕</Body7>
                 </View>
                 <Body4 color={Colors.TEXT_COLOR} align="center">
-                    <Body7>{data.cleanerName}</Body7> has declined this mission.
+                    <Body7>{data.cleanerName}</Body7>{' '}
+                    {variant === 'expired'
+                        ? t("did not answer in time: this request has expired.")
+                        : variant === 'left'
+                            ? t("no longer cleans this accommodation.")
+                            : t("has declined this mission.")}
                 </Body4>
                 <Caption3 color={Colors.TEXT_COLOR} align="center">
                     {t("No worries, choose another housekeeper for this cleaning.")}

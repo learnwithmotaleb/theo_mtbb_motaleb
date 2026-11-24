@@ -107,10 +107,50 @@ export const cleaningHours = (a?: string | null, b?: string | null): number | nu
  * which is saved in `instructions` as "Average cleaning duration: 2h00" (or in notes/cleaningDuration).
  * Normalizes e.g. "2h00" to "2h", while keeping "2h30" as "2h30".
  */
+/** "2h30" / "2h" / "2h00" -> 150 / 120 / 120 minutes; anything else -> null. */
+export const durationToMinutes = (value?: string | null): number | null => {
+  const match = /(\d+)\s*h\s*(\d{1,2})?/i.exec(value ?? '');
+  if (!match) return null;
+  const minutes = Number(match[1]) * 60 + Number(match[2] ?? 0);
+  return minutes > 0 ? minutes : null;
+};
+
+/** 120 -> "2h", 150 -> "2h30", 45 -> "45 min". */
+export const formatDurationMinutes = (minutes?: number | null): string => {
+  const total = Math.round(Number(minutes));
+  if (!total || total <= 0) return '';
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+};
+
+/**
+ * The cleaning time the host entered, for the cleaner's cards. Order:
+ *  1. backend `estimationMinutes` when it comes from the host's duration
+ *  2. `accommodation.cleaningDuration` (minutes)
+ *  3. the legacy "Average cleaning duration: 2h30" text
+ * Never the arrival–departure window: that is shown separately and is not
+ * how long the cleaning takes. Unknown -> "—".
+ */
+export const cleaningEstimate = (accommodation?: any, mission?: any): string => {
+  if (mission?.estimationSource === 'cleaning_duration' && mission?.estimationMinutes) {
+    return formatDurationMinutes(mission.estimationMinutes);
+  }
+  const fromField = formatDurationMinutes(accommodation?.cleaningDuration);
+  if (fromField) return fromField;
+  return extractCleaningDuration(accommodation, mission) ?? '—';
+};
+
 export const extractCleaningDuration = (
   accommodation?: any,
   mission?: any,
 ): string | null => {
+  // 0. The real field: a number of minutes (backend `cleaningDuration`).
+  if (typeof accommodation?.cleaningDuration === 'number') {
+    return formatDurationMinutes(accommodation.cleaningDuration) || null;
+  }
+
   // 1. Direct duration properties if available
   const direct =
     accommodation?.cleaningDuration ??
@@ -165,7 +205,44 @@ export const formatDayKey = (
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(key ?? '');
   if (!match) return '';
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  if (locale.startsWith('fr')) return formatFrenchDate(date, options);
   return date.toLocaleDateString(locale, options);
+};
+
+// French names spelled out here: on some phones the JS date formatter ignores
+// the requested locale and follows the device language, which showed
+// "Monday 5 October" inside the French app.
+const FR_WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const FR_MONTHS = [
+  'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+];
+const FR_MONTHS_SHORT = [
+  'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+  'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+];
+
+/** "lundi 5 octobre 2026", honouring the weekday / day / month / year options. */
+const formatFrenchDate = (date: Date, options: Intl.DateTimeFormatOptions): string => {
+  const parts: string[] = [];
+  if (options.weekday) {
+    const name = FR_WEEKDAYS[date.getDay()];
+    parts.push(options.weekday === 'long' ? name : `${name.slice(0, 3)}.`);
+  }
+  if (options.day) {
+    parts.push(options.day === '2-digit' ? String(date.getDate()).padStart(2, '0') : String(date.getDate()));
+  }
+  if (options.month) {
+    parts.push(
+      options.month === 'long'
+        ? FR_MONTHS[date.getMonth()]
+        : options.month === 'short'
+          ? FR_MONTHS_SHORT[date.getMonth()]
+          : String(date.getMonth() + 1).padStart(2, '0'),
+    );
+  }
+  if (options.year) parts.push(String(date.getFullYear()));
+  return parts.join(' ');
 };
 
 // Date → "YYYY-MM-DD" in device-local terms (what the backend expects for

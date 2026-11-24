@@ -1,4 +1,6 @@
 import { baseApi } from '../api/baseApi';
+import { uploadFile } from '@/lib/photoUpload';
+import { isPendingCleaningRequest } from '@/lib/cleaningStatus';
 import type {
   ApiEnvelope,
   CleaningSchedule,
@@ -6,6 +8,17 @@ import type {
   Paginated,
 } from '../types';
 import type { PickedPhoto } from './accommodationApi';
+
+export interface HostScheduleSummary {
+  awaitingResponse: number;
+  toPay: number;
+  today: number;
+  upcoming: number;
+  proofToValidate: number;
+  problems: number;
+  notDone: number;
+  pendingConnections: number;
+}
 
 export interface CreateSchedulePayload {
   accommodationId: string;
@@ -45,13 +58,7 @@ const photosForm = (
     if (value) form.append(key, value);
   });
   photos.forEach((photo, index) => {
-    const name = photo.name ?? photo.uri.split('/').pop() ?? `proof-${index}.jpg`;
-    const ext = name.split('.').pop()?.toLowerCase() ?? 'jpg';
-    form.append('photos', {
-      uri: photo.uri,
-      name,
-      type: photo.type ?? `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-    } as unknown as Blob);
+    form.append('photos', uploadFile(photo.uri, photo.name, photo.type, `proof-${index}`));
   });
   return form;
 };
@@ -72,9 +79,16 @@ export const scheduleApi = baseApi.injectEndpoints({
     getHostSchedules: builder.query<
       Paginated<CleaningSchedule>,
       | {
+          /** One status or several, comma-separated ("refused,expired"). */
           status?: string;
           /** Named lifecycle bucket for the planning-list tabs. */
           view?: 'awaiting' | 'accepted' | 'pay_now' | 'paid';
+          /** Cleaning-date window, resolved in the x-timezone timezone. */
+          when?: 'today' | 'upcoming' | 'past';
+          from?: string;
+          to?: string;
+          /** Default: soonest first for today/upcoming, most recent first otherwise. */
+          order?: 'asc' | 'desc';
           accommodationId?: string;
           page?: number;
           limit?: number;
@@ -84,6 +98,13 @@ export const scheduleApi = baseApi.injectEndpoints({
       query: (params) => ({ url: '/schedule/host', params: params ?? {} }),
       transformResponse: (res: ApiEnvelope<Paginated<CleaningSchedule>>) => res.data,
       providesTags: ['Schedule'],
+    }),
+
+    /** GET /schedule/host/summary — counters for the host home. */
+    getHostScheduleSummary: builder.query<HostScheduleSummary, void>({
+      query: () => '/schedule/host/summary',
+      transformResponse: (res: ApiEnvelope<HostScheduleSummary>) => res.data,
+      providesTags: ['Schedule', 'Assignment'],
     }),
 
     /** Host validates the cleaning — this releases the escrowed payout. */
@@ -239,11 +260,14 @@ export const {
   useReportDisputeMutation,
   useApproveHandCashMutation,
   useGetScheduleByIdQuery,
+  useGetHostScheduleSummaryQuery,
 } = scheduleApi;
 
 export const usePendingScheduleCount = (options?: { skip?: boolean }): number => {
+  // Same query (and cache entry) as the Requests tab, counted with the same
+  // rule, so the tab badge always equals the number of cards shown.
   const { data } = scheduleApi.useGetCleanerSchedulesQuery(
-    { status: 'scheduled', page: 1, limit: 1 },
+    { status: 'scheduled', page: 1, limit: 50 },
     {
       skip: options?.skip,
       pollingInterval: 60_000,
@@ -252,5 +276,5 @@ export const usePendingScheduleCount = (options?: { skip?: boolean }): number =>
       refetchOnMountOrArgChange: 30,
     },
   );
-  return data?.meta?.total ?? data?.data?.length ?? 0;
+  return (data?.data ?? []).filter(isPendingCleaningRequest).length;
 };

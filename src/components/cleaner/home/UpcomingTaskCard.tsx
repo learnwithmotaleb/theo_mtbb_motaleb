@@ -1,5 +1,8 @@
 import { LocationIcon } from '@/assets/icons/cleaner_icon/LocationIcon';
 import { RightAngleIcon } from '@/assets/icons/common_icon/RightAngleIcon';
+import { CalendarIcon } from '@/assets/icons/cleaner_icon/CalendarIcon';
+import { ClockIcon } from '@/assets/icons/host_icon/ClockIcon';
+import { CleaningStatusBadge } from '@/components/cleaner/CleaningStatusBadge';
 import { Caption1, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { CleanerTask } from '@/types/taskStatus';
@@ -27,7 +30,17 @@ export function UpcomingTaskCard({ item, onPress }: Props) {
                         {item.address}
                     </Caption4>
                 </View>
-                <Caption4 color={Colors.TEXT_COLOR}>{item.date}</Caption4>
+                <View style={styles.row}>
+                    <CalendarIcon size={15} color={Colors.TEXT_COLOR} />
+                    <Caption4 color={Colors.TEXT_COLOR}>{item.date}</Caption4>
+                </View>
+                {item.time ? (
+                    <View style={styles.row}>
+                        <ClockIcon size={15} color={Colors.TEXT_COLOR} />
+                        <Caption4 color={Colors.TEXT_COLOR}>{item.time}</Caption4>
+                    </View>
+                ) : null}
+                <CleaningStatusBadge status={item.status} />
             </View>
             <RightAngleIcon size={24} color={Colors.TEXT_COLOR} />
         </Pressable>

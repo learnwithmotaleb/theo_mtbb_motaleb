@@ -5,7 +5,9 @@ import { FormDropdown } from '@/components/host/housing/FormDropdown';
 import {
     ACCOMMODATION_TYPES,
     hasFloorAndElevator,
+    ACCESS_CODE_MAX_LENGTH,
     KEY_OPTIONS,
+    usesKeyBox,
     ROOM_OPTIONS,
     roomsToLabel,
     roomsToNumber,
@@ -32,6 +34,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+import { UPLOAD_PICKER_OPTIONS } from '@/lib/photoUpload';
 
 function FieldGroup({
     label,
@@ -50,7 +53,7 @@ function FieldGroup({
     );
 }
 
-function InputBox({ placeholder, value, onChangeText, keyboardType, multiline, style }: any) {
+function InputBox({ placeholder, value, onChangeText, keyboardType, multiline, style, ...rest }: any) {
     return (
         <View style={[editStyles.inputBox, multiline && { alignItems: 'flex-start' }]}>
             <TextInput
@@ -62,6 +65,7 @@ function InputBox({ placeholder, value, onChangeText, keyboardType, multiline, s
                 keyboardType={keyboardType}
                 multiline={multiline}
                 textAlignVertical={multiline ? 'top' : 'center'}
+                {...rest}
             />
         </View>
     );
@@ -135,8 +139,7 @@ export default function EditAccommodationScreen() {
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
+            ...UPLOAD_PICKER_OPTIONS,
         });
         if (result.canceled || !result.assets?.length) return;
         const asset = result.assets[0];
@@ -191,7 +194,8 @@ export default function EditAccommodationScreen() {
                 cleaningRate: rate,
                 notes: form.notes.trim(),
                 keys: form.keys,
-                accessCode: form.accessCode.trim(),
+                // Hand delivery: '' clears the code saved for the old key box.
+                accessCode: usesKeyBox(form.keys) ? form.accessCode.trim() : '',
                 instructions: form.instructions.trim(),
                 frequency: form.frequency,
             },
@@ -383,14 +387,19 @@ export default function EditAccommodationScreen() {
                     onChange={(v) => setForm({ ...form, keys: v })}
                 />
 
-                {/* Access code */}
-                <FieldGroup label={t("Access code (optional)")}>
-                    <InputBox
-                        placeholder={t("Ex: 1234 or Gate digital code")}
-                        value={form.accessCode}
-                        onChangeText={(v: string) => setForm({ ...form, accessCode: v })}
-                    />
-                </FieldGroup>
+                {/* Lockbox code — only meaningful with a key box */}
+                {usesKeyBox(form.keys) && (
+                    <FieldGroup label={t("Key box code (optional)")}>
+                        <InputBox
+                            placeholder={t("Ex: 1234 or Gate digital code")}
+                            value={form.accessCode}
+                            maxLength={ACCESS_CODE_MAX_LENGTH}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            onChangeText={(v: string) => setForm({ ...form, accessCode: v })}
+                        />
+                    </FieldGroup>
+                )}
 
                 {/* Instructions */}
                 <FieldGroup label={t("Specific instructions (optional)")}>

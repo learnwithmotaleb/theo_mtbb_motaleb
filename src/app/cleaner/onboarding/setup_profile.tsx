@@ -29,6 +29,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+import { UPLOAD_PICKER_OPTIONS } from '@/lib/photoUpload';
 
 export default function SetupProfileScreen() {
     const t = useT();
@@ -47,10 +48,9 @@ export default function SetupProfileScreen() {
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
+            ...UPLOAD_PICKER_OPTIONS,
             allowsEditing: true,
             aspect: [1, 1],
-            quality: 0.8,
         });
         if (result.canceled || !result.assets?.length) return;
 

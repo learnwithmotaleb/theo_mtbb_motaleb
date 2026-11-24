@@ -1,7 +1,7 @@
 import { SkeletonList } from '@/components/shared/Skeleton';
 import { useT } from '@/i18n';
 import { SearchIcon } from '@/assets/icons/common_icon/SearchIcon';
-import { Body5, Caption1, Caption3 } from '@/components/typo/Typography';
+import { Body5, Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 import { showToast } from '@/components/shared/Toast';
@@ -9,10 +9,10 @@ import { getApiErrorMessage } from '@/lib/apiError';
 import { avatarSource, ConversationRow as ConversationRowData, personName, toConversationRow } from '@/lib/mappers';
 import { useGetAccommodationsQuery } from '@/redux/services/accommodationApi';
 import { useGetConversationsQuery, useStartConversationMutation } from '@/redux/services/chatApi';
-import { AppImage } from '@/components/shared/AppImage';
+import { ConversationRow } from '@/components/shared/ConversationRow';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
@@ -148,26 +148,7 @@ export default function HostMessageScreen() {
                     )
                 }
                 renderItem={({ item }) => (
-                    <Pressable
-                        style={styles.row}
-                        onPress={() => handleNavigate(item)}
-                    >
-                        <AppImage
-                            source={item.image}
-                            style={styles.avatar}
-                            contentFit="cover"
-                        />
-                        <View style={styles.rowInfo}>
-                            <Caption1 color={Colors.PRIMARY_TEXT}>{item.name}</Caption1>
-                            <Caption3
-                                color={Colors.TEXT_COLOR}
-                                numberOfLines={1}
-                            >
-                                {item.lastMessage}
-                            </Caption3>
-                        </View>
-                        <Caption3 color={Colors.TEXT_COLOR}>{item.time}</Caption3>
-                    </Pressable>
+                    <ConversationRow item={item} onPress={() => handleNavigate(item)} />
                 )}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.list}
@@ -207,26 +188,6 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins_400Regular',
     },
     list: { paddingBottom: hp(50) },
-    row: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor:Colors.INPUT_BACKGROUND,
-        borderRadius:wp(10),
-        marginBottom:hp(6),
-        paddingHorizontal:hp(10),
-        gap: wp(12),
-        paddingVertical: hp(12),
-    },
-    avatar: {
-        width: wp(48),
-        height: wp(48),
-        borderRadius: wp(24),
-        flexShrink: 0,
-    },
-    rowInfo: {
-        flex: 1,
-        gap: hp(2),
-    },
     separator: {
         // height: 1,
         // backgroundColor: Colors.BORDER_COLOR,

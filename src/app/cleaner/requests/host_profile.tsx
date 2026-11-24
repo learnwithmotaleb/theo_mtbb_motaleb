@@ -10,7 +10,9 @@ import { showToast } from '@/components/shared/Toast';
 import { Body4, Caption2, Caption3, Caption4 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { getApiErrorMessage } from '@/lib/apiError';
-import { toCleanerRequest } from '@/lib/mappers';
+import { hostAvatarSource, imageSource, personName, toCleanerRequest } from '@/lib/mappers';
+import { useFormat } from '@/lib/useFormat';
+import { useGetUserProfileQuery } from '@/redux/services/userApi';
 import {
     useGetMyRequestsQuery,
     useRespondToAssignmentMutation,
@@ -27,9 +29,15 @@ export default function HostProfileScreen() {
     const router = useRouter();
     const { hostId } = useLocalSearchParams<{ hostId: string }>();
 
-    // There is no public host profile endpoint for cleaners; everything this
-    // screen shows already travels with the cleaner's own pending requests.
-    const { data, isLoading } = useGetMyRequestsQuery({
+    const { formatDate } = useFormat();
+
+    // The host's profile (only readable by someone who works with them).
+    const { data: profile, isLoading: isProfileLoading, error: profileError } =
+        useGetUserProfileQuery(hostId, { skip: !hostId });
+
+    // Pending connection requests from this host: the only case where the
+    // screen offers Accept / Refuse (from a chat, there usually are none).
+    const { data, isLoading: isRequestsLoading } = useGetMyRequestsQuery({
         status: 'pending',
         page: 1,
         limit: 50,
@@ -44,26 +52,42 @@ export default function HostProfileScreen() {
         [data, hostId],
     );
 
+    const isLoading = isProfileLoading || isRequestsLoading;
+    const hasPendingRequest = mine.length > 0;
+
     const host = useMemo(() => {
         const first = mine[0];
-        const city = first?.address ?? '';
-        return {
-            id: hostId,
-            name: first?.hostName ?? 'Host',
-            image: first?.hostImage,
-            role: 'Host',
-            location: city,
-            city,
-            propertiesCount: first?.hostProperties || mine.length,
-            memberSince: first?.hostMemberSince || '-',
-            properties: mine.map((request) => ({
+        // Profile endpoint first; the pending requests fill in when it has
+        // nothing yet (older backend, or the request is all we know).
+        const properties = profile?.sharedAccommodations?.length
+            ? profile.sharedAccommodations.map((acc) => ({
+                id: acc._id,
+                name: acc.name,
+                location: [acc.address, acc.city].filter(Boolean).join(', '),
+                image: imageSource(acc.photo),
+            }))
+            : mine.map((request) => ({
                 id: request.accommodationId,
                 name: request.apartmentName,
                 location: request.address,
                 image: request.image,
-            })),
+            }));
+        const city = profile?.city || properties[0]?.location || '';
+        return {
+            id: hostId,
+            name: profile ? personName(profile, t('Host')) : first?.hostName ?? t('Host'),
+            image: profile ? hostAvatarSource(profile) : first?.hostImage,
+            role: t('Host'),
+            location: city,
+            city: profile?.city || '—',
+            propertiesCount:
+                profile?.totalProperties ?? (first?.hostProperties || properties.length),
+            memberSince: profile?.createdAt
+                ? formatDate(profile.createdAt, { month: 'long', year: 'numeric' })
+                : first?.hostMemberSince || '—',
+            properties,
         };
-    }, [mine, hostId]);
+    }, [profile, mine, hostId, t, formatDate]);
 
     // Accepting the connection answers every property this host is asking about.
     const respondAll = async (action: 'accept' | 'refuse') => {
@@ -82,7 +106,7 @@ export default function HostProfileScreen() {
         }
     };
 
-    if (isLoading && !data) {
+    if (isLoading && !data && !profile) {
         return (
             <SafeAreaView style={[styles.safe, { paddingTop: hp(16) }]}>
                 <SkeletonDetail />
@@ -127,7 +151,9 @@ export default function HostProfileScreen() {
                             <AppertmentIcon size={22} />
                         </View>
                         <Caption4 color={Colors.TEXT_COLOR} align="center">
-                            {host.propertiesCount} Properties
+                            {host.propertiesCount === 1
+                                ? t('1 property')
+                                : t('{n} properties', { n: host.propertiesCount })}
                         </Caption4>
                     </View>
                     <View style={styles.statDivider} />
@@ -136,12 +162,19 @@ export default function HostProfileScreen() {
                             <CalendarIcon size={28} color={Colors.TEXT_COLOR} />
                         </View>
                         <Caption4 color={Colors.TEXT_COLOR} align="center">
-                            Member since{'\n'}({host.memberSince})
+                            {t("Member since")}{'\n'}({host.memberSince})
                         </Caption4>
                     </View>
                 </View>
 
                 {/* <View style={styles.divider} /> */}
+
+                {/* Not allowed (no shared work) or not found: say so plainly. */}
+                {profileError && !hasPendingRequest ? (
+                    <Caption3 color={Colors.TEXT_COLOR} align="center" style={{ marginVertical: hp(12) }}>
+                        {getApiErrorMessage(profileError, t("Could not load this profile."))}
+                    </Caption3>
+                ) : null}
 
                 {/* Properties */}
                 <View style={styles.section}>
@@ -179,27 +212,29 @@ export default function HostProfileScreen() {
                 </View>
             </ScrollView>
 
-            {/* Footer */}
-            <View style={styles.footer}>
-                <CustomButton
-                    title={t("Refuse")}
-                    color='#FF383C'
-                    onPress={() => respondAll('refuse')}
-                    borderRadius={wp(5)}
-                    borderColor='#FF383C1A'
-                    backgroundColor={Colors.APP_BACKGROUND}
-                    width="49%"
-                />
-                <CustomButton
-                    title={t("Accept")}
-                    color='#FFFFFF'
-                    onPress={() => respondAll('accept')}
-                    borderRadius={wp(5)}
-                    borderColor='#FF383C1A'
-                    backgroundColor={"#000000"}
-                    width="49%"
-                />
-            </View>
+            {/* Footer — only when this host still has a request waiting. */}
+            {hasPendingRequest && (
+                <View style={styles.footer}>
+                    <CustomButton
+                        title={t("Refuse")}
+                        color='#FF383C'
+                        onPress={() => respondAll('refuse')}
+                        borderRadius={wp(5)}
+                        borderColor='#FF383C1A'
+                        backgroundColor={Colors.APP_BACKGROUND}
+                        width="49%"
+                    />
+                    <CustomButton
+                        title={t("Accept")}
+                        color='#FFFFFF'
+                        onPress={() => respondAll('accept')}
+                        borderRadius={wp(5)}
+                        borderColor='#FF383C1A'
+                        backgroundColor={"#000000"}
+                        width="49%"
+                    />
+                </View>
+            )}
         </SafeAreaView>
     );
 }

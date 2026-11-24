@@ -13,11 +13,11 @@ import { getApiErrorMessage } from '@/lib/apiError';
 import { accommodationLocation, accommodationPhoto, personName } from '@/lib/mappers';
 import {
     useGetMyCleanerAccommodationsQuery,
-    useRemoveAssignmentMutation,
+    useLeaveAssignmentMutation,
 } from '@/redux/services/assignmentApi';
 import { AppImage } from '@/components/shared/AppImage';
-import React, { useMemo } from 'react';
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
@@ -34,9 +34,12 @@ type Client = {
 function ClientCard({
     item,
     onRemove,
+    isRemoving,
 }: {
     item: Client;
     onRemove: (id: string) => void;
+    /** This card's leave request is in flight. */
+    isRemoving: boolean;
 }) {
     const t = useT();
     const handleDelete = () =>
@@ -81,12 +84,22 @@ function ClientCard({
                             <StarCircleIcon />
                         )}
                         <Caption3 color={item.isPrimary ? Colors.COLOR_ACTIVE : Colors.TEXT_COLOR}>
-                            {item.isPrimary ? 'Principal' : 'Secondary'}
+                            {item.isPrimary ? t('Principal') : t('Secondary')}
                         </Caption3>
                     </View>
 
-                    <Pressable style={clientStyles.deleteBtn} onPress={handleDelete}>
-                        <TrashIcon size={16} color={Colors.COLOR_DANGER} />
+                    <Pressable
+                        style={[clientStyles.deleteBtn, isRemoving && { opacity: 0.5 }]}
+                        onPress={handleDelete}
+                        disabled={isRemoving}
+                        accessibilityRole="button"
+                        accessibilityLabel={t("Leave this client")}
+                    >
+                        {isRemoving ? (
+                            <ActivityIndicator size="small" color={Colors.COLOR_DANGER} />
+                        ) : (
+                            <TrashIcon size={16} color={Colors.COLOR_DANGER} />
+                        )}
                     </Pressable>
                 </View>
             </View>
@@ -102,7 +115,8 @@ export default function MyClientsScreen() {
         limit: 50,
     });
     const { refreshing, onRefresh } = useRefresh([refetch]);
-    const [removeAssignment] = useRemoveAssignmentMutation();
+    const [leaveAssignment] = useLeaveAssignmentMutation();
+    const [removingId, setRemovingId] = useState<string | null>(null);
 
     const clients = useMemo<Client[]>(
         () =>
@@ -120,14 +134,19 @@ export default function MyClientsScreen() {
         [data],
     );
 
-    // Deleting/leaving an accepted assignment uses DELETE /assignment/:id
+    // A cleaner leaves with PATCH /assignment/:id/leave (DELETE is host-only).
+    // The server's reason is shown if it refuses (it used to vanish, which
+    // looked like "nothing happens").
     const handleRemove = async (assignmentId: string) => {
+        if (removingId) return;
+        setRemovingId(assignmentId);
         try {
-            await removeAssignment(assignmentId).unwrap();
-            showToast(t("Client removed successfully"), 'success');
-            refetch();
+            await leaveAssignment(assignmentId).unwrap();
+            showToast(t("You have left this client."), 'success');
         } catch (err) {
-            showToast(getApiErrorMessage(err, t("Could not update the assignment.")), 'error');
+            showToast(getApiErrorMessage(err, t("Could not leave this client.")), 'error');
+        } finally {
+            setRemovingId(null);
         }
     };
 
@@ -138,7 +157,11 @@ export default function MyClientsScreen() {
                 data={clients}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
-                    <ClientCard item={item} onRemove={handleRemove} />
+                    <ClientCard
+                        item={item}
+                        onRemove={handleRemove}
+                        isRemoving={removingId === item.id}
+                    />
                 )}
                 contentContainerStyle={clientStyles.list}
                 showsVerticalScrollIndicator={false}

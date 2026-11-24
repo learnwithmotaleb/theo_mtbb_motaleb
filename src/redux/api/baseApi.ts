@@ -44,8 +44,13 @@ interface AuthStateMinimal {
   auth: { token: string | null };
 }
 
+// Without a timeout a hung request (photo upload, a sleeping server) keeps the
+// button spinning forever. 90s covers a Render cold start (~50s) plus upload.
+const REQUEST_TIMEOUT_MS = 90_000;
+
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,
+  timeout: REQUEST_TIMEOUT_MS,
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as AuthStateMinimal).auth?.token;
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -65,7 +70,10 @@ const baseQueryWithAuth: BaseQueryFn<
 > = async (args, api, extraOptions) => {
   const result = await rawBaseQuery(args, api, extraOptions);
 
-  if (result.error && result.error.status === 401) {
+  // A 401 after sign-out (a screen still mounted refetching with no token)
+  // has no session to end; clearing again would only loop cache resets.
+  const hasSession = Boolean((api.getState() as { auth?: { token?: string | null } }).auth?.token);
+  if (result.error && result.error.status === 401 && hasSession) {
     // Imported lazily: the slice imports nothing from here, but keeping the
     // dependency one-way makes the module graph obvious.
     const { clearAuth } = await import('../slices/authSlice');

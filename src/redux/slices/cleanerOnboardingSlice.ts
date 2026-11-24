@@ -1,5 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+import { clearAuth } from './authSlice';
+import { uploadFile } from '@/lib/photoUpload';
+
 /**
  * The cleaner onboarding wizard spans five screens, so the answers live here
  * until the last step submits them. Field names match `updateProfileSchema`
@@ -43,6 +46,10 @@ const cleanerOnboardingSlice = createSlice({
     },
     resetOnboarding: () => initialState,
   },
+  // A draft never carries over to the next account on this phone.
+  extraReducers: (builder) => {
+    builder.addCase(clearAuth, () => initialState);
+  },
 });
 
 export const { updateOnboarding, resetOnboarding } = cleanerOnboardingSlice.actions;
@@ -66,11 +73,7 @@ export const onboardingToForm = (draft: CleanerOnboardingDraft): FormData => {
   if (draft.biography) form.append('biography', draft.biography);
 
   if (draft.avatarUri) {
-    form.append('profileImage', {
-      uri: draft.avatarUri,
-      name: draft.avatarName ?? 'avatar.jpg',
-      type: draft.avatarType ?? 'image/jpeg',
-    } as unknown as Blob);
+    form.append('profileImage', uploadFile(draft.avatarUri, draft.avatarName, draft.avatarType, 'avatar'));
   }
 
   return form;

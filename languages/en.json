@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Gestlio",
+    "NSCameraUsageDescription": "Gestlio needs access to your camera so you can photograph your accommodation and the result of a cleaning.",
+    "NSPhotoLibraryUsageDescription": "Gestlio needs access to your photos so you can add pictures of your accommodation and upload proof of a completed cleaning.",
+    "NSLocationWhenInUseUsageDescription": "Gestlio does not use your location. This permission is never requested by the app."
+  }
+}

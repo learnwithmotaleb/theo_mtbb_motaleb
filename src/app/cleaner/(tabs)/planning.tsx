@@ -7,9 +7,10 @@ import { Body4, Body5, Caption2, Caption3, Caption4, H6 } from '@/components/typ
 import { Colors } from '@/constants/theme';
 import { useRefresh } from '@/hooks/useRefresh';
 import { accommodationLocation, accommodationPhoto } from '@/lib/mappers';
-import { cleaningHours, extractCleaningDuration, formatCleaningWindow, formatDayKey } from '@/lib/datetime';
+import { cleaningEstimate, formatCleaningWindow, formatDayKey } from '@/lib/datetime';
 import { useGetCleanerPlanningQuery } from '@/redux/services/scheduleApi';
 import { AppImage } from '@/components/shared/AppImage';
+import { CleaningStatusBadge } from '@/components/cleaner/CleaningStatusBadge';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -25,6 +26,7 @@ type PlanningTask = {
     estimation: string;
     time: string;
     image: any;
+    status: string;
 };
 
 function toISO(date: Date): string {
@@ -67,6 +69,7 @@ function TaskCard({
                     </Caption4>
                 </View>
                 <Body4 color={Colors.PRIMARY_TEXT}>{item.time}</Body4>
+                <CleaningStatusBadge status={item.status} />
             </View>
             <RightAngleIcon size={28} color={Colors.TEXT_COLOR} />
         </Pressable>
@@ -84,14 +87,31 @@ export default function PlanningScreen() {
     // Fetch the whole month the selected day belongs to, so moving across the
     // date strip inside that month never refetches.
     const month = selectedDate.slice(0, 7); // "YYYY-MM"
-    const { data, isLoading, refetch } = useGetCleanerPlanningQuery({ month });
-    const { refreshing, onRefresh } = useRefresh([refetch]);
+    const { data, isLoading, refetch } = useGetCleanerPlanningQuery(
+        { month },
+        // Host-side changes (validation, rejected proof…) show up without a
+        // manual refresh: on screen focus and every minute while open.
+        { refetchOnFocus: true, pollingInterval: 60_000 },
+    );
+    // The month on screen while scrolling the strip (may differ from the
+    // selected day's month): fetched too, so its days get their dots.
+    const [visibleMonth, setVisibleMonth] = useState(month);
+    const { data: visibleData, refetch: refetchVisible } = useGetCleanerPlanningQuery(
+        { month: visibleMonth },
+        { skip: visibleMonth === month, refetchOnFocus: true },
+    );
+    const { refreshing, onRefresh } = useRefresh(
+        visibleMonth === month ? [refetch] : [refetch, refetchVisible],
+    );
 
     // Days with at least one mission get a dot on the strip.
-    const activeDates = useMemo(
-        () => (data?.days ?? []).filter((d) => d.count > 0).map((d) => d.date),
-        [data],
-    );
+    const activeDates = useMemo(() => {
+        const days = [...(data?.days ?? []), ...(visibleData?.days ?? [])];
+        return days.filter((d) => d.count > 0).map((d) => d.date);
+    }, [data, visibleData]);
+
+    const isToday = selectedDate === todayISO;
+    const isPastDay = selectedDate < todayISO;
 
     // The backend already grouped missions by day in this device's timezone.
     const tasks = useMemo<PlanningTask[]>(() => {
@@ -102,16 +122,11 @@ export default function PlanningScreen() {
                 id: mission._id,
                 apartmentName: accommodation?.name ?? 'Accommodation',
                 address: accommodationLocation(accommodation),
-                estimation: (() => {
-                    const hostDuration = extractCleaningDuration(accommodation, mission);
-                    if (hostDuration) return hostDuration;
-                    const hours =
-                        Math.abs(mission.estimationHours ?? 0) ||
-                        cleaningHours(mission.checkInTime, mission.checkOutTime);
-                    return hours ? `${hours}h` : '—';
-                })(),
+                // The host's cleaning duration, never the arrival–departure window.
+                estimation: cleaningEstimate(accommodation, mission),
                 time: formatCleaningWindow(mission.checkInTime, mission.checkOutTime),
                 image: accommodationPhoto(accommodation),
+                status: mission.status,
             };
         });
     }, [data, selectedDate]);
@@ -139,13 +154,23 @@ export default function PlanningScreen() {
                     selectedDate={selectedDate}
                     onSelectDate={setSelectedDate}
                     activeDates={activeDates}
+                    onVisibleMonthChange={setVisibleMonth}
                 />
 
                 
                 <View style={styles.sectionHeader}>
-                    <Body5 color={Colors.PRIMARY_TEXT}>
-                        {formatDayKey(selectedDate, undefined, locale)}
-                    </Body5>
+                    <View style={styles.dayTitle}>
+                        <Body5 color={isPastDay ? Colors.TEXT_COLOR : Colors.PRIMARY_TEXT}>
+                            {formatDayKey(selectedDate, undefined, locale)}
+                        </Body5>
+                        {(isToday || isPastDay) && (
+                            <View style={[styles.dayTag, isToday ? styles.dayTagToday : styles.dayTagPast]}>
+                                <Caption4 color={isToday ? Colors.COLOR_ACTIVE : Colors.TEXT_COLOR}>
+                                    {isToday ? t("Today") : t("Past day")}
+                                </Caption4>
+                            </View>
+                        )}
+                    </View>
                     {tasks.length > 0 && (
                         <View style={styles.missionBadge}>
                             <Caption3 color={Colors.TEXT_COLOR}>{missionLabel}</Caption3>
@@ -209,6 +234,19 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.BORDER_COLOR,
     },
+    dayTitle: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(8),
+        flexShrink: 1,
+    },
+    dayTag: {
+        paddingHorizontal: wp(8),
+        paddingVertical: hp(2),
+        borderRadius: wp(10),
+    },
+    dayTagToday: { backgroundColor: '#E2F6E8' },
+    dayTagPast: { backgroundColor: '#EDEDED' },
     taskCard: {
         flexDirection: 'row',
         alignItems: 'center',

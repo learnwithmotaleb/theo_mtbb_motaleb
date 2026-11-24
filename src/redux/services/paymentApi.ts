@@ -98,12 +98,30 @@ export interface TransactionDetail {
   cleaner: any;
 }
 
+/** Stripe Connect onboarding state, as summarised by the backend. */
+export type ConnectState =
+  | 'not_started'
+  | 'incomplete'
+  | 'pending_verification'
+  | 'restricted'
+  | 'active';
+
 /** GET /payment/connect/status — the cleaner's Stripe Connect payout state. */
 export interface ConnectStatus {
   /** True once Stripe reports both details submitted and payouts enabled. */
   onboarded: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
+  status?: ConnectState;
+  /** Stripe requirement keys still missing (e.g. "individual.id_number"). */
+  requirementsDue?: string[];
+  pendingVerification?: string[];
+  disabledReason?: string | null;
+  /** Unix seconds or ISO date before which the requirements are due. */
+  currentDeadline?: number | string | null;
+  /** Last four digits of the payout IBAN, once added. */
+  bankLast4?: string | null;
+  country?: string | null;
   /** Present only before onboarding has been started at all. */
   message?: string;
 }
@@ -132,7 +150,7 @@ export const paymentApi = baseApi.injectEndpoints({
      * ISO-2 code; the backend falls back to the cleaner's profile country.
      */
     createConnectAccount: builder.mutation<
-      { url: string; accountId?: string },
+      { url: string; accountId?: string; country?: string },
       { country?: string } | void
     >({
       query: (body) => ({
@@ -140,7 +158,7 @@ export const paymentApi = baseApi.injectEndpoints({
         method: 'POST',
         body: body ?? {},
       }),
-      transformResponse: (res: ApiEnvelope<{ url: string; accountId?: string }>) =>
+      transformResponse: (res: ApiEnvelope<{ url: string; accountId?: string; country?: string }>) =>
         res.data,
       invalidatesTags: ['Payment', 'Me'],
     }),

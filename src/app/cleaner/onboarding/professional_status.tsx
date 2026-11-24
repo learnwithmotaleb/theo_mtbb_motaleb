@@ -28,12 +28,16 @@ export default function ProfessionalStatusScreen() {
     const [error, setError] = useState('');
     const [isLoading] = useState(false);
 
+    // SIRET is often written "123 456 789 00012" — spaces and dots are allowed
+    // and dropped, so only the 14 digits are validated and saved.
+    const siretDigits = siret.replace(/[\s.]/g, '');
+
     const validate = (): boolean => {
-        if (!siret.trim()) {
+        if (!siretDigits) {
             setError('SIRET Number is required');
             return false;
         }
-        if (!/^\d{14}$/.test(siret.trim())) {
+        if (!/^\d{14}$/.test(siretDigits)) {
             setError('SIRET Number must be exactly 14 digits');
             return false;
         }
@@ -45,7 +49,7 @@ export default function ProfessionalStatusScreen() {
     // end, so a cleaner can go back and change an answer without half-saving.
     const handleContinue = () => {
         if (!validate()) return;
-        dispatch(updateOnboarding({ siretNumber: siret.trim() }));
+        dispatch(updateOnboarding({ siretNumber: siretDigits }));
         router.push('/cleaner/onboarding/work-location');
     };
 
@@ -87,12 +91,12 @@ export default function ProfessionalStatusScreen() {
                         placeholder={t("14 Digits")}
                         placeholderTextColor={Colors.PLACEHOLDER_TEXT}
                         keyboardType="numeric"
-                        maxLength={14}
+                        maxLength={20} // 14 digits + optional spaces/dots
                     />
                 </View>
                 {error ? (
                     <Caption1 color={Colors.COLOR_DANGER} style={styles.errorText}>
-                        {error}
+                        {t(error)}
                     </Caption1>
                 ) : null}
 

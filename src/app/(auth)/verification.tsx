@@ -1,7 +1,7 @@
 import { useT } from '@/i18n';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
-import Toast, { showToast } from '@/components/shared/Toast';
+import { showToast } from '@/components/shared/Toast';
 import { Body6, Caption3, H1 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { getLocalizedAuthErrorMessage } from '@/lib/apiError';
@@ -115,7 +115,6 @@ export default function VerificationScreen() {
 
     return (
         <>
-            <Toast />
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.root}

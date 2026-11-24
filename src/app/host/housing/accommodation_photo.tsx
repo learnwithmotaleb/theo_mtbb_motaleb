@@ -16,6 +16,7 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+import { UPLOAD_PICKER_OPTIONS } from '@/lib/photoUpload';
 
 export default function AccommodationPhotoScreen() {
     const t = useT();
@@ -33,8 +34,7 @@ export default function AccommodationPhotoScreen() {
             return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            quality: 0.8,
+            ...UPLOAD_PICKER_OPTIONS,
         });
         if (result.canceled || !result.assets?.length) return;
 

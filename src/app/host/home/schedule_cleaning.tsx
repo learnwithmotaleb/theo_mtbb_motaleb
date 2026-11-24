@@ -8,12 +8,10 @@ import { showToast } from '@/components/shared/Toast';
 import { Body4, Body6, Caption2, Caption3 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { useIntlLocale, useT } from '@/i18n';
-import { getApiErrorMessage } from '@/lib/apiError';
 import { cleaningWindow, formatClock, toDateKey } from '@/lib/datetime';
-import { avatarSource, personName } from '@/lib/mappers';
+import { accommodationLocation, accommodationPhoto, avatarSource, personName } from '@/lib/mappers';
 import { useGetAccommodationsQuery } from '@/redux/services/accommodationApi';
 import { useGetAccommodationCleanersQuery } from '@/redux/services/assignmentApi';
-import { useCreateScheduleMutation } from '@/redux/services/scheduleApi';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -42,14 +40,20 @@ export default function ScheduleCleaningScreen() {
     const t = useT();
     const locale = useIntlLocale();
     const router = useRouter();
-    const params = useLocalSearchParams<{ accommodationId?: string }>();
+    // `date` comes from a tap on the property calendar (YYYY-MM-DD).
+    const params = useLocalSearchParams<{ accommodationId?: string; date?: string }>();
 
     const { data: accommodationPage, isLoading: isLoadingAccommodations } =
         useGetAccommodationsQuery({ page: 1, limit: 100 });
     const accommodations = useMemo(() => accommodationPage?.data ?? [], [accommodationPage]);
 
     const [pickedAccommodationId, setPickedAccommodationId] = useState(params.accommodationId ?? '');
-    const [date, setDate] = useState('');
+    // The day tapped on the calendar is preselected — only today or later,
+    // a past day is never a valid choice.
+    const [date, setDate] = useState(() => {
+        const fromCalendar = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? '') ? params.date! : '';
+        return fromCalendar && fromCalendar >= toDateKey(new Date()) ? fromCalendar : '';
+    });
     const [pickedArrival, setArrival] = useState('');
     const [pickedDeparture, setDeparture] = useState('');
     const [pickedCleanerId, setCleanerId] = useState('');
@@ -103,7 +107,6 @@ export default function ScheduleCleaningScreen() {
         setCleanerId('');
     };
 
-    const [createSchedule, { isLoading: isCreating }] = useCreateScheduleMutation();
 
     const validate = (): string | null => {
         if (!accommodationId) return t('Choose a property first.');
@@ -123,33 +126,25 @@ export default function ScheduleCleaningScreen() {
         return null;
     };
 
-    const handleSubmit = async () => {
-        if (isCreating) return;
+    // « Suivant » only opens the payment page with the request's details.
+    // Nothing is sent to the cleaner until « Confirmer » there.
+    const handleSubmit = () => {
         const problem = validate();
         if (problem) {
             showToast(problem, 'error');
             return;
         }
-        try {
-            const schedule = await createSchedule({
+        router.push({
+            pathname: '/host/payment/payment_type',
+            params: {
                 accommodationId,
                 cleanerId,
                 date,
-                // Same convention as the accommodation and every schedule the
-                // app has created so far: the cleaning starts at the guest's
-                // check-out and ends by the next guest's check-in. Screens
-                // order the two by clock time, so they always read arrival first.
-                checkOutTime: arrival,
-                checkInTime: departure,
-                notes: notes.trim() || undefined,
-            }).unwrap();
-            router.replace({
-                pathname: '/host/payment/payment_type',
-                params: { scheduleId: schedule._id, accommodationId },
-            } as any);
-        } catch (err) {
-            showToast(getApiErrorMessage(err, t('Could not create the schedule.')), 'error');
-        }
+                arrival,
+                departure,
+                notes: notes.trim(),
+            },
+        } as any);
     };
 
     const renderCleaners = () => {
@@ -235,14 +230,35 @@ export default function ScheduleCleaningScreen() {
                         </Caption3>
                     </View>
                 ) : (
+                    <>
+                    {/* The property being booked, with its photo, so the host
+                        sees at a glance which one it is. */}
+                    {accommodation && (
+                        <View style={styles.propertyCard}>
+                            <AppImage
+                                source={accommodationPhoto(accommodation)}
+                                style={styles.propertyPhoto}
+                                contentFit="cover"
+                            />
+                            <View style={{ flex: 1, gap: hp(4) }}>
+                                <Body4 color={Colors.PRIMARY_TEXT} numberOfLines={2}>
+                                    {accommodation.name}
+                                </Body4>
+                                <Caption3 color={Colors.TEXT_COLOR} numberOfLines={2}>
+                                    {accommodationLocation(accommodation)}
+                                </Caption3>
+                            </View>
+                        </View>
+                    )}
                     <FormDropdown
-                        label={t('Property')}
+                        label={accommodation ? t('Change property') : t('Property')}
                         placeholder={t('Choose a property')}
                         value={accommodationId}
                         options={accommodations.map((a) => a._id)}
                         getLabel={(id) => accommodations.find((a) => a._id === id)?.name ?? ''}
                         onChange={selectAccommodation}
                     />
+                    </>
                 )}
 
                 {/* Date */}
@@ -317,9 +333,9 @@ export default function ScheduleCleaningScreen() {
 
             <View style={styles.footer}>
                 <CustomButton
-                    title={isCreating ? t('Scheduling...') : t('Next')}
+                    title={t('Next')}
                     onPress={handleSubmit}
-                    disabled={isCreating || accepted.length === 0}
+                    disabled={accepted.length === 0}
                     width="100%"
                     backgroundColor={accepted.length > 0 ? Colors.PRIMARY_TEXT : Colors.BORDER_COLOR}
                     color="#fff"
@@ -332,6 +348,16 @@ export default function ScheduleCleaningScreen() {
 }
 
 const styles = StyleSheet.create({
+    propertyCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(12),
+        padding: wp(10),
+        marginTop: hp(12),
+        borderRadius: wp(14),
+        backgroundColor: Colors.INPUT_BACKGROUND,
+    },
+    propertyPhoto: { width: wp(96), height: wp(80), borderRadius: wp(10) },
     safe: { flex: 1, backgroundColor: Colors.APP_BACKGROUND, paddingHorizontal: wp(20) },
     scroll: { paddingTop: hp(10), paddingBottom: hp(40) },
     label: { marginBottom: hp(8), fontFamily: 'Poppins_500Medium' },

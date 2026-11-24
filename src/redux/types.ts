@@ -47,6 +47,8 @@ export interface User {
   isProfessionalVerified?: boolean;
   stripeOnboardingComplete?: boolean;
   payoutsEnabled?: boolean;
+  /** Cleaners only: computed by the backend on every request. */
+  isOnboardingComplete?: boolean;
   createdAt?: string;
   updatedAt?: string;
   [key: string]: unknown;
@@ -65,10 +67,17 @@ export interface Accommodation {
   surface: number;
   hasElevator: boolean;
   cleaningRate: number;
+  /** Average cleaning time set by the host, in minutes (1–1440). */
+  cleaningDuration?: number;
   notes?: string;
   photos: string[];
   keys?: string;
   accessCode?: string;
+  /**
+   * Cleaner responses only: false while their connection is not accepted
+   * (pending, refused, left) — accessCode / doorCode are then withheld.
+   */
+  accessCodesVisible?: boolean;
   instructions?: string;
   frequency?: string;
   checkInTime?: string;
@@ -118,6 +127,10 @@ export interface Housekeeper {
   workCity?: string;
   serviceRadius?: number;
   availability?: 'full_time' | 'part_time' | 'flexible';
+  /** Stripe account exists and payouts are enabled: the host can pay by card. */
+  canReceivePayments?: boolean;
+  payoutsEnabled?: boolean;
+  stripeOnboardingComplete?: boolean;
   [key: string]: unknown;
 }
 
@@ -140,13 +153,27 @@ export interface CleanerAssignment {
   host: string | HostSummary;
   cleaner: string | Housekeeper;
   role: 'primary' | 'substitute';
-  status: 'pending' | 'accepted' | 'refused';
+  status: 'pending' | 'accepted' | 'refused' | 'left';
   pricePerCleaning?: number;
   message?: string;
   respondedAt?: string;
+  leftAt?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+export type TrackingStatus =
+  | 'awaiting_response'
+  | 'to_pay'
+  | 'awaiting_cash_approval'
+  | 'confirmed'
+  | 'not_done'
+  | 'proof_to_validate'
+  | 'problem'
+  | 'done'
+  | 'refused'
+  | 'expired'
+  | 'cancelled';
 
 export type ScheduleStatus =
   | 'scheduled'
@@ -156,7 +183,9 @@ export type ScheduleStatus =
   | 'proof_submitted'
   | 'completed'
   | 'disputed'
-  | 'cancelled';
+  | 'cancelled'
+  /** Never answered before its cleaning window ended (set by a backend job). */
+  | 'expired';
 
 export interface CleaningSchedule {
   _id: string;
@@ -169,7 +198,17 @@ export interface CleaningSchedule {
   checkOutTime: string;
   notes?: string;
   status: ScheduleStatus;
-  paymentStatus: 'unpaid' | 'paid_held' | 'released' | 'refunded';
+  /**
+   * Card: unpaid -> paid_held (held until the host validates) -> released,
+   * or refunded. Off-app: handcash_pending -> paid_handcash.
+   */
+  paymentStatus:
+    | 'unpaid'
+    | 'paid_held'
+    | 'released'
+    | 'refunded'
+    | 'handcash_pending'
+    | 'paid_handcash';
   proofPhotos?: string[];
   proofNotes?: string;
   dispute?: {
@@ -179,7 +218,10 @@ export interface CleaningSchedule {
     raisedAt: string;
   } | null;
   completedAt?: string;
-  cleanerResponse?: 'pending' | 'accepted' | 'refused';
+  cleanerResponse?: 'pending' | 'accepted' | 'refused' | 'expired';
+  expiredAt?: string;
+  /** Backend-computed badge for the host's tracking page. */
+  trackingStatus?: TrackingStatus;
   latestPayment?: {
     status: string;
     amount: number;
@@ -201,8 +243,12 @@ export interface MissionCard extends CleaningSchedule {
   dayKey: string;
   /** Human day label the backend already localized ("Today", "12 Sept"...). */
   dayLabel: string;
-  /** checkOutTime - checkInTime, in hours. */
+  /** Host's cleaningDuration when set, else checkOutTime - checkInTime; hours, 1 decimal. */
   estimationHours: number;
+  /** Same estimate in exact minutes — use this for display ("2h30"). */
+  estimationMinutes?: number;
+  /** Where the estimate comes from. */
+  estimationSource?: 'cleaning_duration' | 'time_window';
   /** Agreed price for the cleaner, or the accommodation rate as fallback. */
   payAmount: number | null;
   payCurrency: string;

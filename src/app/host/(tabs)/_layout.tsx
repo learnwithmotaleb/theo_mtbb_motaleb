@@ -4,6 +4,7 @@ import { HomeIcon } from "@/assets/icons/host_icon/HomeIcon";
 import { MenuIcon } from "@/assets/icons/host_icon/MenuIcon";
 import { MessageIcon } from "@/assets/icons/host_icon/MessageIcon";
 import { PlanningIcon } from "@/assets/icons/host_icon/PlanningIcon";
+import { useScheduleLiveUpdates } from "@/hooks/useScheduleLiveUpdates";
 import { Tabs } from "expo-router";
 import React from "react";
 import { View } from "react-native";
@@ -26,6 +27,8 @@ const TabIcon = ({ focused, children }: { focused: boolean; children: React.Reac
 export default function PatientTabsLayout() {
     const t = useT();
     const insets = useSafeAreaInsets();
+    // Live: a cleaner accepting, refusing or sending proof refreshes the lists.
+    useScheduleLiveUpdates();
 
     return (
         <Tabs

@@ -66,6 +66,11 @@ export default function CalendarScreen() {
         [accommodation, connections, monthData, propertyId],
     );
 
+    // Red reminder until an iCal link exists; neutral while still loading so
+    // it never flashes red on a connected property.
+    const icalState: 'loading' | 'missing' | 'connected' =
+        connections === undefined ? 'loading' : connections.length > 0 ? 'connected' : 'missing';
+
     const calendarEvents = useMemo(() => toCalendarEvents(monthData), [monthData]);
     const listEvents = useMemo(() => toListEvents(listData), [listData]);
 
@@ -93,9 +98,27 @@ export default function CalendarScreen() {
                             <Caption3 color={Colors.TEXT_COLOR} numberOfLines={1}>{property.location}</Caption3>
                         </View>
                     </View>
-                    <Pressable style={styles.calendarsBtn} onPress={handleConnectCalendar}>
-                        <Caption3 color={Colors.PRIMARY_TEXT} style={{ fontFamily: 'Poppins_500Medium' }}>
-                            {t("Calendars")}
+                    <Pressable
+                        style={[
+                            styles.calendarsBtn,
+                            icalState === 'missing' && styles.icalBtnMissing,
+                        ]}
+                        onPress={handleConnectCalendar}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                            icalState === 'missing'
+                                ? t('iCal – not connected')
+                                : icalState === 'connected'
+                                  ? t('iCal – connected')
+                                  : 'iCal'
+                        }
+                    >
+                        {icalState === 'missing' && <View style={styles.icalDot} />}
+                        <Caption3
+                            color={icalState === 'missing' ? Colors.COLOR_DANGER : Colors.PRIMARY_TEXT}
+                            style={{ fontFamily: 'Poppins_600SemiBold' }}
+                        >
+                            {icalState === 'connected' ? '✓ iCal' : 'iCal'}
                         </Caption3>
                     </Pressable>
                 </View>
@@ -186,12 +209,25 @@ const styles = StyleSheet.create({
     propertyInfo: { flex: 1, gap: hp(3) },
     row: { flexDirection: 'row', alignItems: 'center', gap: wp(4) },
     calendarsBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: wp(6),
         paddingHorizontal: wp(14),
         paddingVertical: hp(8),
         borderRadius: wp(10),
         borderWidth: 1,
         borderColor: Colors.BORDER_COLOR,
         backgroundColor: Colors.INPUT_BACKGROUND,
+    },
+    icalBtnMissing: {
+        borderColor: Colors.COLOR_DANGER,
+        backgroundColor: '#FF383C0F',
+    },
+    icalDot: {
+        width: wp(7),
+        height: wp(7),
+        borderRadius: wp(4),
+        backgroundColor: Colors.COLOR_DANGER,
     },
     tabWrapper: {
         flexDirection: 'row',
