@@ -118,8 +118,10 @@ export default function CleanerPaymentScreen() {
 
     const handleSetupPayouts = async () => {
         try {
-            // Gestlio is a French service: Stripe needs FR to default to +33,
-            // euros and the IBAN form. The backend falls back to FR as well.
+            // Gestlio is a French service: Stripe needs FR for +33, euros and
+            // the IBAN form. NOTE: the live Stripe platform is currently a US
+            // account, which Stripe refuses for FR connected accounts — this
+            // fails until the client connects a French Stripe account.
             const { url } = await createConnectAccount({
                 country: (me?.country as string) || 'FR',
             }).unwrap();
@@ -128,6 +130,16 @@ export default function CleanerPaymentScreen() {
             await WebBrowser.openAuthSessionAsync(url, PAYOUT_RETURN_URL);
             refetch();
         } catch (err) {
+            // 5xx here means the server or its Stripe setup failed (missing
+            // config, Connect not enabled, Stripe down). The backend message
+            // carries technical diagnostics meant for developers, so the
+            // cleaner gets a plain message and the details go to the dev log.
+            const status = (err as { status?: unknown })?.status;
+            if (typeof status === 'number' && status >= 500) {
+                if (__DEV__) console.warn('[payout onboarding]', status, (err as { data?: unknown }).data);
+                showToast(t("Payout setup is temporarily unavailable. Please try again later or contact support."), 'error');
+                return;
+            }
             showToast(getApiErrorMessage(err, t("Could not start payout setup.")), 'error');
         }
     };

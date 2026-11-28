@@ -57,10 +57,13 @@ export default function HousekeeperDetailScreen() {
                         <View style={styles.headerInfo}>
                             <Body1 color={Colors.PRIMARY_TEXT}>{data.name}</Body1>
                             <Caption3 color={Colors.TEXT_COLOR}>{data.role}</Caption3>
-                            <View style={styles.locationRow}>
-                                <LocationIcon size={17} color={Colors.TEXT_COLOR} />
-                                <Caption3 color={Colors.TEXT_COLOR}>{data.location}</Caption3>
-                            </View>
+                            {/* The city the cleaner entered — nothing when unknown. */}
+                            {data.location ? (
+                                <View style={styles.locationRow}>
+                                    <LocationIcon size={17} color={Colors.TEXT_COLOR} />
+                                    <Caption3 color={Colors.TEXT_COLOR}>{data.location}</Caption3>
+                                </View>
+                            ) : null}
                         </View>
                     </View>
 
@@ -72,7 +75,15 @@ export default function HousekeeperDetailScreen() {
                                 <LocationIcon size={24} />
                             </View>
                             <Caption5 color={Colors.TEXT_COLOR} align="center">
-                                Intervention zone{'\n'}({data.interventionZone})
+                                {t("Intervention zone")}{'\n'}
+                                {data.interventionZone
+                                    ? data.serviceRadius
+                                        ? t("{city} ({radius} km)", {
+                                              city: data.interventionZone,
+                                              radius: data.serviceRadius,
+                                          })
+                                        : data.interventionZone
+                                    : '—'}
                             </Caption5>
                         </View>
                         <View style={styles.statDivider} />
@@ -81,7 +92,8 @@ export default function HousekeeperDetailScreen() {
                                 <VerifyIcon size={24} color='#8E8E93' />
                             </View>
                             <Caption5 color={Colors.TEXT_COLOR} align="center">
-                                App experience ({data.cleaningsCompleted}{'\n'}cleanings completed)
+                                {t("App experience")}{'\n'}
+                                {t("{n} cleanings completed", { n: data.cleaningsCompleted })}
                             </Caption5>
                         </View>
                         <View style={styles.statDivider} />
@@ -91,7 +103,8 @@ export default function HousekeeperDetailScreen() {
                                 <CalendarIcon size={24} color={Colors.TEXT_COLOR} />
                             </View>
                             <Caption5 color={Colors.TEXT_COLOR} align="center">
-                                Member since ({data.memberSince})
+                                {t("Member since")}{'\n'}
+                                {data.memberSince || '—'}
                             </Caption5>
                         </View>
                     </View>
@@ -125,7 +138,7 @@ export default function HousekeeperDetailScreen() {
                     {/* About */}
                     <View style={styles.section}>
                         <Body6 color={Colors.PRIMARY_TEXT} style={styles.sectionTitle}>
-                            {t("About Léa")}
+                            {t("About {name}", { name: data.firstName || data.name })}
                         </Body6>
                         <Caption5 color={Colors.TEXT_COLOR}>{data.about}</Caption5>
                     </View>

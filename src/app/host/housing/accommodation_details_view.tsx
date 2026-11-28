@@ -144,6 +144,8 @@ export default function AccommodationDetailsViewScreen() {
             practical: {
                 keyBox: keysText(accommodation?.keys, t) || '—',
                 keyBoxCode: accommodation?.accessCode ?? accommodation?.doorCode ?? '—',
+                checkOutTime: accommodation?.checkOutTime || '—',
+                checkInTime: accommodation?.checkInTime || '—',
                 specificInstruction:
                     accommodation?.instructions ?? accommodation?.notes ?? '—',
             },
@@ -374,6 +376,18 @@ export default function AccommodationDetailsViewScreen() {
                     <View style={styles.keyBox}>
                         <Caption4 color={Colors.TEXT_COLOR}>{t("Access code")}</Caption4>
                         <Body6 color={Colors.PRIMARY_TEXT}>{data.practical.keyBoxCode}</Body6>
+                    </View>
+                </View>
+
+                {/* Guest turnover: the cleaning happens between these two */}
+                <View style={styles.keyRow}>
+                    <View style={styles.keyBox}>
+                        <Caption4 color={Colors.TEXT_COLOR}>{t("Guest check-out time")}</Caption4>
+                        <Body6 color={Colors.PRIMARY_TEXT}>{data.practical.checkOutTime}</Body6>
+                    </View>
+                    <View style={styles.keyBox}>
+                        <Caption4 color={Colors.TEXT_COLOR}>{t("Next guest check-in time")}</Caption4>
+                        <Body6 color={Colors.PRIMARY_TEXT}>{data.practical.checkInTime}</Body6>
                     </View>
                 </View>
 

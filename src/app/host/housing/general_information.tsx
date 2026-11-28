@@ -5,10 +5,10 @@ import { FormField } from '@/components/host/housing/FormField';
 import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { StepIndicator } from '@/components/shared/StepIndicator';
-import { Body2, Caption3, Caption4 } from '@/components/typo/Typography';
-import { showToast } from '@/components/shared/Toast';
+import { Body2, Caption3 } from '@/components/typo/Typography';
 import { ACCOMMODATION_TYPES, type AccommodationType } from '@/constants/accommodation';
 import { Colors } from '@/constants/theme';
+import { useFieldErrors, type FieldErrors } from '@/hooks/useFieldErrors';
 import { checkPostalCode, POSTAL_CODE_PATTERN } from '@/lib/frenchGeo';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
@@ -17,6 +17,10 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+
+type Field = 'name' | 'type' | 'address' | 'city' | 'zip';
+// Top-to-bottom order, so Continue points at the first problem on screen.
+const FIELD_ORDER: Field[] = ['name', 'type', 'address', 'city', 'zip'];
 
 export default function GeneralInformationScreen() {
     const t = useT();
@@ -35,6 +39,7 @@ export default function GeneralInformationScreen() {
         cityCodes: draft.cityPostalCodes,
     });
     const [checking, setChecking] = useState(false);
+    const { errors, clear, report, remember, scrollRef } = useFieldErrors(FIELD_ORDER);
 
     // Instant feedback when the city's codes are already known.
     const zip = form.zip.trim();
@@ -53,41 +58,30 @@ export default function GeneralInformationScreen() {
             else if (codes.length > 1 && !codes.includes(prev.zip)) nextZip = '';
             return { ...prev, city, cityCodes: codes, zip: nextZip };
         });
+        clear('city', 'zip');
     };
 
     const handleContinue = async () => {
         if (checking) return;
-        if (form.name.trim().length < 2) {
-            showToast(t("Enter an accommodation name."), 'error');
-            return;
-        }
-        if (!form.type) {
-            showToast(t("Choose the type of accommodation."), 'error');
-            return;
-        }
-        if (form.address.trim().length < 5) {
-            showToast(t("Enter a full address."), 'error');
-            return;
-        }
-        if (!form.city.trim()) {
-            showToast(t("Enter a city."), 'error');
-            return;
-        }
-        if (!POSTAL_CODE_PATTERN.test(zip)) {
-            showToast(t("Enter a valid 5-digit postal code."), 'error');
-            return;
-        }
+        // Every missing field is marked at once, not one per tap.
+        const found: FieldErrors<Field> = {};
+        if (form.name.trim().length < 2) found.name = t("Enter an accommodation name.");
+        if (!form.type) found.type = t("Choose the type of accommodation.");
+        if (form.address.trim().length < 5) found.address = t("Enter a full address.");
+        if (!form.city.trim()) found.city = t("Enter a city.");
+        if (!POSTAL_CODE_PATTERN.test(zip)) found.zip = t("Enter a valid 5-digit postal code.");
+        if (!report(found)) return;
 
         // The postal code must belong to the city.
         setChecking(true);
         const result = await checkPostalCode(form.city, zip, form.cityCodes);
         setChecking(false);
         if (result === 'mismatch') {
-            showToast(t('This postal code does not match {city}.', { city: form.city.trim() }), 'error');
+            report({ zip: t('This postal code does not match {city}.', { city: form.city.trim() }) });
             return;
         }
         if (result === 'unknown_postal_code') {
-            showToast(t("This postal code does not exist."), 'error');
+            report({ zip: t("This postal code does not exist.") });
             return;
         }
         // 'unavailable': the geo service could not be reached. The format is
@@ -121,6 +115,7 @@ export default function GeneralInformationScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
             <ScrollView
+                ref={scrollRef}
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
@@ -134,31 +129,58 @@ export default function GeneralInformationScreen() {
                 <Caption3 color={Colors.TEXT_COLOR} style={styles.subtitle}>
                     {t("Start with the basic information of your accommodation.")}
                 </Caption3>
+                <Caption3 color={Colors.TEXT_COLOR} style={styles.legend}>
+                    <Caption3 color={Colors.COLOR_DANGER}>✱ </Caption3>
+                    {t("Required field")}
+                </Caption3>
 
                 <FormField
                     label={t("Accommodation name")}
                     placeholder={t("e.g. Apartment in the city centre")}
                     value={form.name}
-                    onChangeText={(v) => setForm({ ...form, name: v })}
+                    onChangeText={(v) => {
+                        setForm({ ...form, name: v });
+                        clear('name');
+                    }}
+                    required
+                    error={errors.name}
+                    onLayout={remember('name')}
                 />
                 <FormDropdown
                     label={t("Type of accommodation")}
                     placeholder={t("Choose a type")}
                     value={form.type}
                     options={[...ACCOMMODATION_TYPES]}
-                    onChange={(v) =>
-                        setForm({ ...form, type: v as AccommodationType })
-                    }
+                    onChange={(v) => {
+                        setForm({ ...form, type: v as AccommodationType });
+                        clear('type');
+                    }}
+                    required
+                    error={errors.type}
+                    onLayout={remember('type')}
                 />
                 <FormField
                     label={t("Address")}
                     placeholder={t("Street number and name")}
                     value={form.address}
-                    onChangeText={(v) => setForm({ ...form, address: v })}
+                    onChangeText={(v) => {
+                        setForm({ ...form, address: v });
+                        clear('address');
+                    }}
                     textContentType="streetAddressLine1"
+                    required
+                    error={errors.address}
+                    onLayout={remember('address')}
                 />
 
-                <CityField label={t("City")} value={form.city} onChange={handleCityChange} />
+                <CityField
+                    label={t("City")}
+                    value={form.city}
+                    onChange={handleCityChange}
+                    required
+                    error={errors.city}
+                    onLayout={remember('city')}
+                />
 
                 <FormField
                     label={t("Zip code")}
@@ -166,21 +188,25 @@ export default function GeneralInformationScreen() {
                     keyboardType="number-pad"
                     maxLength={5}
                     value={form.zip}
-                    onChangeText={(v) => setForm({ ...form, zip: v.replace(/\D/g, '') })}
+                    onChangeText={(v) => {
+                        setForm({ ...form, zip: v.replace(/\D/g, '') });
+                        clear('zip');
+                    }}
                     textContentType="postalCode"
+                    required
+                    // The live city/code mismatch shows the same way as a
+                    // Continue error.
+                    error={errors.zip || zipError || null}
+                    hint={
+                        form.cityCodes.length > 1
+                            ? t("Postal codes for {city}: {codes}", {
+                                  city: form.city,
+                                  codes: form.cityCodes.join(', '),
+                              })
+                            : null
+                    }
+                    onLayout={remember('zip')}
                 />
-                {zipError ? (
-                    <Caption4 color={Colors.COLOR_DANGER} style={styles.fieldError}>
-                        {zipError}
-                    </Caption4>
-                ) : form.cityCodes.length > 1 ? (
-                    <Caption4 color={Colors.TEXT_COLOR} style={styles.fieldError}>
-                        {t("Postal codes for {city}: {codes}", {
-                            city: form.city,
-                            codes: form.cityCodes.join(', '),
-                        })}
-                    </Caption4>
-                ) : null}
             </ScrollView>
 
             <View style={styles.footer}>
@@ -212,8 +238,8 @@ paddingHorizontal: wp(20),
     title: { marginBottom: hp(8),
         textAlign:"center"
     },
-    subtitle: { marginBottom: hp(24),textAlign:"center" },
-    fieldError: { marginTop: -hp(12), marginBottom: hp(16) },
+    subtitle: { marginBottom: hp(12), textAlign: "center" },
+    legend: { marginBottom: hp(16) },
     footer: {
         // paddingVertical: hp(16),
         paddingHorizontal: wp(20),

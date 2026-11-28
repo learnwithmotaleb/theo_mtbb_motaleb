@@ -1,6 +1,9 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { showToast } from '@/components/shared/Toast';
+import { useT } from '@/i18n';
+import { getApiErrorMessage } from '@/lib/apiError';
 import { resolveAssetUrl } from '@/lib/config';
 import { formatTime } from '@/lib/datetime';
 import { avatarSource, personName } from '@/lib/mappers';
@@ -23,6 +26,8 @@ export interface ChatBubble {
   time: string;
   /** Absolute url for image/file messages; empty for plain text. */
   fileUrl: string;
+  /** Original name of an attached document, shown on its bubble. */
+  fileName: string;
   messageType: Message['messageType'];
 }
 
@@ -35,8 +40,12 @@ const PAGE_SIZE = 50;
  * thread is polled while it is open instead of holding a socket connection.
  */
 export const useConversation = (conversationId?: string) => {
+  const t = useT();
   const me = useCurrentUser();
   const [inputText, setInputText] = useState('');
+  // A photo upload can take a few seconds on mobile data; the screen shows a
+  // spinner in place of the "+" meanwhile.
+  const [isUploading, setIsUploading] = useState(false);
 
   const { data, isLoading, refetch } = useGetMessagesQuery(
     { conversationId: conversationId as string, page: 1, limit: PAGE_SIZE },
@@ -87,14 +96,16 @@ export const useConversation = (conversationId?: string) => {
         typeof message.sender === 'string' ? message.sender : message.sender?._id;
       return {
         id: message._id,
-        text: message.isDeleted ? 'This message was deleted' : message.content ?? '',
+        text: message.isDeleted ? t('This message was deleted') : message.content ?? '',
         sender: senderId && me?._id && senderId === me._id ? 'me' : 'other',
         time: formatTime(message.createdAt),
-        fileUrl: resolveAssetUrl(message.fileUrl),
-        messageType: message.messageType,
+        // A deleted photo must not keep showing its picture.
+        fileUrl: message.isDeleted ? '' : resolveAssetUrl(message.fileUrl),
+        fileName: message.fileName ?? '',
+        messageType: message.isDeleted ? 'text' : message.messageType,
       };
     });
-  }, [data, me]);
+  }, [data, me, t]);
 
   const send = useCallback(async () => {
     const text = inputText.trim();
@@ -111,9 +122,12 @@ export const useConversation = (conversationId?: string) => {
 
   /** Attach a photo from the library and send it as one message. */
   const sendAttachment = useCallback(async () => {
-    if (!conversationId) return;
+    if (!conversationId || isUploading) return;
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    if (!permission.granted) {
+      showToast(t("Photo permission is needed to add a picture."), 'error');
+      return;
+    }
 
     const result = await ImagePicker.launchImageLibraryAsync({
         ...UPLOAD_PICKER_OPTIONS,
@@ -121,21 +135,30 @@ export const useConversation = (conversationId?: string) => {
     if (result.canceled || !result.assets?.length) return;
 
     const asset = result.assets[0];
-    await sendMessage({
-      conversationId,
-      file: {
-        uri: asset.uri,
-        name: asset.fileName ?? undefined,
-        type: asset.mimeType ?? undefined,
-      },
-    }).unwrap();
-  }, [conversationId, sendMessage]);
+    setIsUploading(true);
+    try {
+      await sendMessage({
+        conversationId,
+        file: {
+          uri: asset.uri,
+          name: asset.fileName ?? undefined,
+          type: asset.mimeType ?? undefined,
+        },
+      }).unwrap();
+    } catch (err) {
+      // Before, a failed upload was silently dropped (unhandled rejection).
+      showToast(getApiErrorMessage(err, t("The photo could not be sent.")), 'error');
+    } finally {
+      setIsUploading(false);
+    }
+  }, [conversationId, isUploading, sendMessage, t]);
 
   return {
     header,
     messages,
     isLoading,
     isSending,
+    isUploading,
     inputText,
     setInputText,
     send,

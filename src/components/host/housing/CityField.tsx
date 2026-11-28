@@ -4,7 +4,14 @@ import { Colors } from '@/constants/theme';
 import { useT } from '@/i18n';
 import { Commune, POPULAR_CITIES, searchCommunes } from '@/lib/frenchGeo';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+    ActivityIndicator,
+    type LayoutChangeEvent,
+    Pressable,
+    StyleSheet,
+    TextInput,
+    View,
+} from 'react-native';
 import { hp, wp } from '../../../../utils/responsiveDevice';
 
 type Props = {
@@ -15,6 +22,12 @@ type Props = {
      * then known), and null while they type a name freely.
      */
     onChange: (city: string, commune: Commune | null) => void;
+    /** Adds a red ✱ after the label. */
+    required?: boolean;
+    /** Shown under the field, which turns red. */
+    error?: string | null;
+    /** Layout of the whole field, for scrolling back to it. */
+    onLayout?: (event: LayoutChangeEvent) => void;
 };
 
 /**
@@ -23,7 +36,7 @@ type Props = {
  * that is not in the suggestions is still allowed — the postal-code check on
  * Continue confirms it.
  */
-export function CityField({ label, value, onChange }: Props) {
+export function CityField({ label, value, onChange, required, error, onLayout }: Props) {
     const t = useT();
     const [focused, setFocused] = useState(false);
     const [results, setResults] = useState<Commune[]>([]);
@@ -88,11 +101,18 @@ export function CityField({ label, value, onChange }: Props) {
     const showPopular = focused && query.length < 2;
 
     return (
-        <View style={styles.wrapper}>
+        <View style={styles.wrapper} onLayout={onLayout}>
             <Body6 color={Colors.PRIMARY_TEXT} style={styles.label}>
                 {label}
+                {required && <Body6 color={Colors.COLOR_DANGER}> ✱</Body6>}
             </Body6>
-            <View style={[styles.inputBox, focused && styles.inputFocused]}>
+            <View
+                style={[
+                    styles.inputBox,
+                    focused && styles.inputFocused,
+                    !!error && !focused && styles.inputError,
+                ]}
+            >
                 <SearchIcon size={16} color={Colors.TEXT_COLOR} />
                 <TextInput
                     style={styles.input}
@@ -112,6 +132,11 @@ export function CityField({ label, value, onChange }: Props) {
                 />
                 {loading && <ActivityIndicator size="small" color={Colors.TEXT_COLOR} />}
             </View>
+            {error ? (
+                <Caption3 color={Colors.COLOR_DANGER} style={styles.helper}>
+                    {error}
+                </Caption3>
+            ) : null}
 
             {showPopular && (
                 <View style={styles.chips}>
@@ -173,6 +198,9 @@ const styles = StyleSheet.create({
         borderColor: 'transparent',
     },
     inputFocused: { borderColor: '#0088FF' },
+    // Same look as FormDropdown's error state.
+    inputError: { borderColor: Colors.COLOR_DANGER, backgroundColor: '#FF383C0D' },
+    helper: { marginTop: hp(6) },
     input: {
         flex: 1,
         fontSize: 13,

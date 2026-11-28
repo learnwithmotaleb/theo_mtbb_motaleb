@@ -258,9 +258,13 @@ export const toHousingItem = (accommodation: ApiAccommodation): HousingItem => (
 export const toUiHousekeeper = (cleaner: Housekeeper) => ({
   id: cleaner._id,
   name: personName(cleaner, t('Housekeeper')),
+  firstName: (cleaner.firstName as string | undefined) ?? '',
   role: t('Housekeeper'),
-  location: cleaner.interventionZone || cleaner.workCity || '',
-  interventionZone: cleaner.interventionZone || cleaner.workCity || '',
+  // The city the cleaner entered (signup or profile) — the same value both
+  // sides show. Empty when unknown: no default city is ever filled in.
+  location: cleaner.workCity || cleaner.interventionZone || '',
+  interventionZone: cleaner.workCity || cleaner.interventionZone || '',
+  serviceRadius: cleaner.serviceRadius ?? null,
   appExperience: t('{n} cleanings completed', { n: cleaner.cleaningsCompleted ?? 0 }),
   memberSince: cleaner.createdAt ? formatDate(cleaner.createdAt as string, {
     month: 'long',
@@ -401,7 +405,8 @@ export const toConversationRow = (conversation: any): ConversationRow => {
     id: conversation._id,
     name: personName(other, 'Conversation'),
     image: avatarSource(other?.profileImage),
-    lastMessage: conversation.lastMessage ?? '',
+    // The backend previews a photo as "📎 Attachment" (English); translated here.
+    lastMessage: conversation.lastMessage ? t(conversation.lastMessage) : '',
     time: conversation.lastMessageAt ? formatTime(conversation.lastMessageAt) : '',
     unreadCount: conversation.unreadCount ?? 0,
     otherParticipantId: other?._id ?? '',

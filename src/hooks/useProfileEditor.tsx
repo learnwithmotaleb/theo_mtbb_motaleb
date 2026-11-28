@@ -25,6 +25,14 @@ export interface EditableField {
     list?: boolean;
     /** Read-only fields (email, SIRET once verified) show no edit affordance. */
     readOnly?: boolean;
+    /**
+     * Other update-me keys that must receive the same value. The cleaner's
+     * city is stored twice (workCity + interventionZone), as at onboarding.
+     */
+    alsoSendAs?: string[];
+    keyboardType?: 'default' | 'number-pad';
+    /** Returns an error message to block saving, or null when the value is fine. */
+    validate?: (value: string) => string | null;
 }
 
 /**
@@ -52,6 +60,11 @@ export const useProfileEditor = () => {
 
     const saveEditor = useCallback(async () => {
         if (!editing) return;
+        const problem = editing.validate?.(draft.trim()) ?? null;
+        if (problem) {
+            showToast(problem, 'error');
+            return;
+        }
         const form = new FormData();
         if (editing.list) {
             // Multi-value fields (languages, servicesOffered) are entered one
@@ -62,7 +75,9 @@ export const useProfileEditor = () => {
                 .filter(Boolean)
                 .forEach((entry) => form.append(editing.key, entry));
         } else {
-            form.append(editing.key, draft.trim());
+            [editing.key, ...(editing.alsoSendAs ?? [])].forEach((key) =>
+                form.append(key, draft.trim()),
+            );
         }
 
         try {
@@ -124,6 +139,7 @@ export const useProfileEditor = () => {
                             placeholder={editing?.label}
                             placeholderTextColor={Colors.PLACEHOLDER_TEXT}
                             autoCapitalize="none"
+                            keyboardType={editing?.keyboardType ?? 'default'}
                         />
                     </View>
                     <CustomButton

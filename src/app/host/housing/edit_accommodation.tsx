@@ -4,6 +4,8 @@ import { CityField } from '@/components/host/housing/CityField';
 import { FormDropdown } from '@/components/host/housing/FormDropdown';
 import {
     ACCOMMODATION_TYPES,
+    arrivalOptionsAfter,
+    DEPARTURE_TIME_OPTIONS,
     hasFloorAndElevator,
     ACCESS_CODE_MAX_LENGTH,
     KEY_OPTIONS,
@@ -104,7 +106,12 @@ export default function EditAccommodationScreen() {
         accessCode: '',
         instructions: '',
         frequency: '',
+        // Guest check-out / next check-in ("HH:mm"): the cleaning window the
+        // recommendations and schedules are built from.
+        checkOutTime: '',
+        checkInTime: '',
     });
+    const [timeErrors, setTimeErrors] = useState<{ checkOutTime?: string; checkInTime?: string }>({});
     const askFloor = hasFloorAndElevator(form.type);
 
     // Fill the form once the accommodation arrives.
@@ -129,8 +136,26 @@ export default function EditAccommodationScreen() {
             accessCode: accommodation.accessCode ?? '',
             instructions: accommodation.instructions ?? '',
             frequency: accommodation.frequency ?? '',
+            checkOutTime: accommodation.checkOutTime ?? '',
+            checkInTime: accommodation.checkInTime ?? '',
         });
     }, [accommodation]);
+
+    const changeDeparture = (checkOutTime: string) => {
+        // Same rule as at creation: an arrival that no longer comes after the
+        // new departure is cleared rather than kept invalid.
+        setForm((prev) => ({
+            ...prev,
+            checkOutTime,
+            checkInTime: prev.checkInTime && prev.checkInTime > checkOutTime ? prev.checkInTime : '',
+        }));
+        setTimeErrors({});
+    };
+
+    const changeArrival = (checkInTime: string) => {
+        setForm((prev) => ({ ...prev, checkInTime }));
+        setTimeErrors((prev) => ({ ...prev, checkInTime: undefined }));
+    };
 
     const handlePickPhoto = async () => {
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -176,6 +201,19 @@ export default function EditAccommodationScreen() {
             showToast(t("This postal code does not exist."), 'error');
             return;
         }
+        const times: { checkOutTime?: string; checkInTime?: string } = {};
+        if (!form.checkOutTime) times.checkOutTime = t("Choose the guest departure time.");
+        if (!form.checkInTime) {
+            times.checkInTime = t("Choose the next guests' arrival time.");
+        } else if (form.checkOutTime && form.checkInTime <= form.checkOutTime) {
+            // "HH:mm" strings compare in clock order.
+            times.checkInTime = t("The next guests must arrive after the departure time.");
+        }
+        setTimeErrors(times);
+        if (times.checkOutTime || times.checkInTime) {
+            showToast((times.checkOutTime ?? times.checkInTime) as string, 'error');
+            return;
+        }
         // The rate may still carry the currency symbol from the old copy.
         const rate = form.rate.replace(/[^\d.,]/g, '').replace(',', '.');
 
@@ -198,6 +236,8 @@ export default function EditAccommodationScreen() {
                 accessCode: usesKeyBox(form.keys) ? form.accessCode.trim() : '',
                 instructions: form.instructions.trim(),
                 frequency: form.frequency,
+                checkOutTime: form.checkOutTime,
+                checkInTime: form.checkInTime,
             },
             newPhoto ? [newPhoto] : [],
         );
@@ -419,6 +459,37 @@ export default function EditAccommodationScreen() {
                     value={form.frequency}
                     options={['Every day', 'Every week', 'Every 2 weeks', 'Every month', 'On demand']}
                     onChange={(v) => setForm({ ...form, frequency: v })}
+                />
+
+                {/* Guest check-out — when a cleaning can start */}
+                <FormDropdown
+                    label={t("Guest check-out time")}
+                    placeholder="--:--"
+                    value={form.checkOutTime}
+                    options={DEPARTURE_TIME_OPTIONS}
+                    getLabel={(v) => v}
+                    onChange={changeDeparture}
+                    required
+                    error={timeErrors.checkOutTime}
+                />
+
+                {/* Next guest check-in — when the cleaning must be finished */}
+                <FormDropdown
+                    label={t("Next guest check-in time")}
+                    placeholder="--:--"
+                    value={form.checkInTime}
+                    options={arrivalOptionsAfter(form.checkOutTime)}
+                    getLabel={(v) => v}
+                    onChange={changeArrival}
+                    required
+                    error={timeErrors.checkInTime}
+                    hint={
+                        form.checkOutTime
+                            ? t("Times after {time} only: the cleaning happens in between.", {
+                                  time: form.checkOutTime,
+                              })
+                            : null
+                    }
                 />
             </ScrollView>
 

@@ -4,7 +4,6 @@ import { CustomButton } from '@/components/shared/CustomButton';
 import SectionTitle from '@/components/shared/SectionTitle';
 import { StepIndicator } from '@/components/shared/StepIndicator';
 import { Body2, Caption3 } from '@/components/typo/Typography';
-import { showToast } from '@/components/shared/Toast';
 import { Colors } from '@/constants/theme';
 import {
     hasFloorAndElevator,
@@ -12,6 +11,7 @@ import {
     roomsToLabel,
     roomsToNumber,
 } from '@/constants/accommodation';
+import { useFieldErrors, type FieldErrors } from '@/hooks/useFieldErrors';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
 import { useRouter } from 'expo-router';
@@ -27,6 +27,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hp, wp } from '../../../../utils/responsiveDevice';
+
+type Field = 'rooms' | 'surface' | 'elevator' | 'rate';
+// Top-to-bottom order, so Continue points at the first problem on screen.
+const FIELD_ORDER: Field[] = ['rooms', 'surface', 'elevator', 'rate'];
+
+/** Red message under a custom field, same as FormDropdown / FormField. */
+function FieldError({ message }: { message?: string }) {
+    if (!message) return null;
+    return (
+        <Caption3 color={Colors.COLOR_DANGER} style={styles.helper}>
+            {message}
+        </Caption3>
+    );
+}
 
 export default function AccommodationDetailsScreen() {
     const t = useT();
@@ -48,26 +62,19 @@ export default function AccommodationDetailsScreen() {
         rate: draft.cleaningRate,
     });
 
+    const { errors, clear, report, remember, scrollRef } = useFieldErrors(FIELD_ORDER);
+
     // "55,5" is how a French keyboard types a decimal.
     const rate = form.rate.replace(',', '.').trim();
 
     const handleContinue = () => {
-        if (!form.rooms) {
-            showToast(t("Choose the number of rooms."), 'error');
-            return;
-        }
-        if (!(Number(form.surface) > 0)) {
-            showToast(t("Enter the surface area."), 'error');
-            return;
-        }
-        if (askFloor && elevator === null) {
-            showToast(t("Tell us whether there is an elevator."), 'error');
-            return;
-        }
-        if (rate === '' || !(Number(rate) >= 0)) {
-            showToast(t("Enter a cleaning rate."), 'error');
-            return;
-        }
+        // Every missing field is marked at once, not one per tap.
+        const found: FieldErrors<Field> = {};
+        if (!form.rooms) found.rooms = t("Choose the number of rooms.");
+        if (!(Number(form.surface) > 0)) found.surface = t("Enter the surface area.");
+        if (askFloor && elevator === null) found.elevator = t("Tell us whether there is an elevator.");
+        if (rate === '' || !(Number(rate) >= 0)) found.rate = t("Enter a cleaning rate.");
+        if (!report(found)) return;
         dispatch(
             updateDraft({
                 numberOfRooms: roomsToNumber(form.rooms),
@@ -98,6 +105,7 @@ export default function AccommodationDetailsScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
                 <ScrollView
+                    ref={scrollRef}
                     contentContainerStyle={styles.scroll}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
@@ -108,6 +116,10 @@ export default function AccommodationDetailsScreen() {
                     <Caption3 color={Colors.TEXT_COLOR} style={styles.subtitle}>
                         {t("Describe your accommodation to help organize it better.")}
                     </Caption3>
+                    <Caption3 color={Colors.TEXT_COLOR} style={styles.legend}>
+                        <Caption3 color={Colors.COLOR_DANGER}>✱ </Caption3>
+                        {t("Required field")}
+                    </Caption3>
 
                     {/* Number of rooms */}
                     <FormDropdown
@@ -115,25 +127,36 @@ export default function AccommodationDetailsScreen() {
                         placeholder={t("Choose")}
                         value={form.rooms}
                         options={[...ROOM_OPTIONS]}
-                        onChange={(v) => setForm({ ...form, rooms: v })}
+                        onChange={(v) => {
+                            setForm({ ...form, rooms: v });
+                            clear('rooms');
+                        }}
+                        required
+                        error={errors.rooms}
+                        onLayout={remember('rooms')}
                     />
 
                     {/* Surface */}
-                    <View style={styles.fieldGroup}>
+                    <View style={styles.fieldGroup} onLayout={remember('surface')}>
                         <Caption3 color={Colors.PRIMARY_TEXT} style={styles.label}>
                             {t("Surface (m²)")}
+                            <Caption3 color={Colors.COLOR_DANGER}> ✱</Caption3>
                         </Caption3>
-                        <View style={styles.inputBox}>
+                        <View style={[styles.inputBox, !!errors.surface && styles.inputBoxError]}>
                             <TextInput
                                 style={styles.input}
                                 placeholder={t("Surface in m²")}
                                 placeholderTextColor={Colors.TEXT_COLOR}
                                 keyboardType="number-pad"
                                 value={form.surface}
-                                onChangeText={(v) => setForm({ ...form, surface: v.replace(/\D/g, '') })}
+                                onChangeText={(v) => {
+                                    setForm({ ...form, surface: v.replace(/\D/g, '') });
+                                    clear('surface');
+                                }}
                             />
                             <Caption3 color={Colors.TEXT_COLOR}>m²</Caption3>
                         </View>
+                        <FieldError message={errors.surface} />
                     </View>
 
                     {askFloor && (
@@ -153,9 +176,10 @@ export default function AccommodationDetailsScreen() {
                     </View>
 
                     {/* Elevator */}
-                    <View style={styles.fieldGroup}>
+                    <View style={styles.fieldGroup} onLayout={remember('elevator')}>
                         <Caption3 color={Colors.PRIMARY_TEXT} style={styles.label}>
                             {t("Is there an elevator?")}
+                            <Caption3 color={Colors.COLOR_DANGER}> ✱</Caption3>
                         </Caption3>
                         <View style={styles.toggleRow}>
                             {(['yes', 'no'] as const).map((opt) => (
@@ -164,8 +188,12 @@ export default function AccommodationDetailsScreen() {
                                     style={[
                                         styles.toggleBtn,
                                         elevator === opt && styles.toggleActive,
+                                        !!errors.elevator && styles.inputBoxError,
                                     ]}
-                                    onPress={() => setElevator(opt)}
+                                    onPress={() => {
+                                        setElevator(opt);
+                                        clear('elevator');
+                                    }}
                                 >
                                     <Caption3
                                         color={
@@ -179,26 +207,32 @@ export default function AccommodationDetailsScreen() {
                                 </Pressable>
                             ))}
                         </View>
+                        <FieldError message={errors.elevator} />
                     </View>
                     </>
                     )}
 
                     {/* Cleaning rate */}
-                    <View style={styles.fieldGroup}>
+                    <View style={styles.fieldGroup} onLayout={remember('rate')}>
                         <Caption3 color={Colors.PRIMARY_TEXT} style={styles.label}>
                             {t("Cleaning rate")}
+                            <Caption3 color={Colors.COLOR_DANGER}> ✱</Caption3>
                         </Caption3>
-                        <View style={styles.inputBox}>
+                        <View style={[styles.inputBox, !!errors.rate && styles.inputBoxError]}>
                             <TextInput
                                 style={styles.input}
                                 placeholder={t("Amount")}
                                 placeholderTextColor={Colors.TEXT_COLOR}
                                 keyboardType="decimal-pad"
                                 value={form.rate}
-                                onChangeText={(v) => setForm({ ...form, rate: v.replace(/[^\d.,]/g, '') })}
+                                onChangeText={(v) => {
+                                    setForm({ ...form, rate: v.replace(/[^\d.,]/g, '') });
+                                    clear('rate');
+                                }}
                             />
                             <Caption3 color={Colors.TEXT_COLOR}>€</Caption3>
                         </View>
+                        <FieldError message={errors.rate} />
                         <Caption3
                             color={Colors.TEXT_COLOR}
                             style={{ marginTop: hp(6), fontStyle: 'italic' }}
@@ -255,7 +289,9 @@ const styles = StyleSheet.create({
         // paddingBottom: hp(20)
      },
     title: { marginBottom: hp(6), fontFamily: 'Poppins_600SemiBold',textAlign:"center" },
-    subtitle: { marginBottom: hp(24),textAlign:"center" },
+    subtitle: { marginBottom: hp(12), textAlign: "center" },
+    legend: { marginBottom: hp(16) },
+    helper: { marginTop: hp(6) },
     fieldGroup: { marginBottom: hp(20) },
     label: { marginBottom: hp(8), fontFamily: 'Poppins_500Medium' },
     inputBox: {
@@ -265,7 +301,11 @@ const styles = StyleSheet.create({
         borderRadius: wp(10),
         paddingHorizontal: wp(16),
         paddingVertical: hp(14),
+        borderWidth: 1,
+        borderColor: 'transparent',
     },
+    // Same look as FormDropdown's error state.
+    inputBoxError: { borderColor: Colors.COLOR_DANGER, backgroundColor: '#FF383C0D' },
     input: {
         flex: 1,
         fontSize: 13,
@@ -292,6 +332,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: Colors.INPUT_BACKGROUND,
         borderRadius: wp(10),
+        borderWidth: 1,
+        borderColor: 'transparent',
     },
     toggleActive: {
         backgroundColor: '#E8E8E8',

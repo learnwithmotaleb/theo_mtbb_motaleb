@@ -48,8 +48,18 @@ interface AuthStateMinimal {
 // button spinning forever. 90s covers a Render cold start (~50s) plus upload.
 const REQUEST_TIMEOUT_MS = 90_000;
 
+// Expo SDK 57 replaces the global `fetch` with `expo/fetch`, whose FormData
+// encoder cannot read React Native file parts (`{ uri, name, type }`): it
+// throws "Unsupported FormDataPart implementation" before sending anything, so
+// every photo upload failed as FETCH_ERROR ("Network error") while text-only
+// forms worked. React Native's own fetch (whatwg-fetch over XHR, shipped with
+// react-native) streams `uri` files natively, so all API calls use it.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const rnFetch: typeof fetch = require('whatwg-fetch').fetch;
+
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_BASE_URL,
+  fetchFn: rnFetch,
   timeout: REQUEST_TIMEOUT_MS,
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as AuthStateMinimal).auth?.token;

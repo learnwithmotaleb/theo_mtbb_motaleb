@@ -76,6 +76,34 @@ export default function PersonalInformationScreen() {
         [me, t],
     );
 
+    // Where the cleaner works: entered at signup, shown to hosts on the
+    // cleaner's profile and used to match them with accommodations.
+    const workInfo = useMemo<EditableField[]>(
+        () => [
+            {
+                key: 'workCity',
+                // Stored twice by the backend; onboarding sets both.
+                alsoSendAs: ['interventionZone'],
+                label: t("Work city"),
+                value: (me?.workCity as string) || (me?.interventionZone as string) || '',
+                validate: (value) => (value ? null : t("Enter a city.")),
+            },
+            {
+                key: 'serviceRadius',
+                label: t("Service radius (km)"),
+                value: me?.serviceRadius ? String(me.serviceRadius) : '',
+                keyboardType: 'number-pad',
+                validate: (value) => {
+                    const km = Number(value);
+                    return Number.isInteger(km) && km >= 5 && km <= 30
+                        ? null
+                        : t("Enter a radius between 5 and 30 km.");
+                },
+            },
+        ],
+        [me, t],
+    );
+
     const addressInfo = useMemo<EditableField[]>(
         () => [
             { key: 'address', label: t("Address"), value: me?.address ?? '' },
@@ -128,6 +156,16 @@ export default function PersonalInformationScreen() {
                 </Body4>
                 <View style={infoStyles.card}>
                     {personalInfo.map((item) => (
+                        <InfoRow key={item.key} field={item} onEdit={openEditor} />
+                    ))}
+                </View>
+
+                {/* Work area section */}
+                <Body4 color={Colors.COLOR_ACTIVE} style={infoStyles.sectionLabel}>
+                    {t("Work area:")}
+                </Body4>
+                <View style={infoStyles.card}>
+                    {workInfo.map((item) => (
                         <InfoRow key={item.key} field={item} onEdit={openEditor} />
                     ))}
                 </View>

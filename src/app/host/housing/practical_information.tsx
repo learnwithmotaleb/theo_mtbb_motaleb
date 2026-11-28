@@ -12,10 +12,11 @@ import {
     KEY_OPTIONS,
     usesKeyBox,
 } from '@/constants/accommodation';
+import { useFieldErrors, type FieldErrors } from '@/hooks/useFieldErrors';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { updateDraft } from '@/redux/slices/accommodationDraftSlice';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
     ScrollView,
     StyleSheet,
@@ -42,8 +43,6 @@ export default function PracticalInformationScreen() {
     const router = useRouter();
     const dispatch = useAppDispatch();
     const draft = useAppSelector((state) => state.accommodationDraft);
-    const scrollRef = useRef<ScrollView>(null);
-    const fieldY = useRef<Partial<Record<Field, number>>>({});
 
     const [form, setForm] = useState({
         keys: draft.keys,
@@ -55,16 +54,12 @@ export default function PracticalInformationScreen() {
         checkOutTime: draft.checkOutTime,
         checkInTime: draft.checkInTime,
     });
-    // Shown under each field (a toast alone was easy to miss).
-    const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+    // Red field + message underneath + toast at the top, like every step.
+    const { errors, clear, report, remember, scrollRef } = useFieldErrors(FIELD_ORDER);
 
     const update = (patch: Partial<typeof form>) => {
         setForm((prev) => ({ ...prev, ...patch }));
-        setErrors((prev) => {
-            const next = { ...prev };
-            (Object.keys(patch) as Field[]).forEach((key) => delete next[key]);
-            return next;
-        });
+        clear(...(Object.keys(patch) as Field[]));
     };
 
     const changeDeparture = (checkOutTime: string) => {
@@ -74,8 +69,8 @@ export default function PracticalInformationScreen() {
         update({ checkOutTime, ...(keepArrival ? {} : { checkInTime: '' }) });
     };
 
-    const validate = (): Partial<Record<Field, string>> => {
-        const found: Partial<Record<Field, string>> = {};
+    const validate = (): FieldErrors<Field> => {
+        const found: FieldErrors<Field> = {};
         if (!form.keys) found.keys = t("Choose where the keys are.");
         if (!form.checkOutTime) found.checkOutTime = t("Choose the guest departure time.");
         if (!form.checkInTime) {
@@ -89,16 +84,7 @@ export default function PracticalInformationScreen() {
     };
 
     const handleContinue = () => {
-        const found = validate();
-        setErrors(found);
-        const first = FIELD_ORDER.find((field) => found[field]);
-        if (first) {
-            const y = fieldY.current[first];
-            if (y !== undefined) {
-                scrollRef.current?.scrollTo({ y: Math.max(0, y - hp(20)), animated: true });
-            }
-            return;
-        }
+        if (!report(validate())) return;
         dispatch(
             updateDraft({
                 ...form,
@@ -106,10 +92,6 @@ export default function PracticalInformationScreen() {
             }),
         );
         router.push('/host/housing/accommodation_summary' as any);
-    };
-
-    const remember = (field: Field) => (event: { nativeEvent: { layout: { y: number } } }) => {
-        fieldY.current[field] = event.nativeEvent.layout.y;
     };
 
     return (

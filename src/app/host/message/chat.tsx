@@ -3,14 +3,16 @@ import { LeftArrowIcon } from '@/assets/icons/common_icon/LeftArrowIcon';
 import { PlusCircleIcon } from '@/assets/icons/common_icon/PlusCircleIcon';
 import { SendMessageIcon } from '@/assets/icons/common_icon/SendMessageIcon';
 import { showToast } from '@/components/shared/Toast';
-import { Body6, Caption1, Caption3 } from '@/components/typo/Typography';
+import { Body6, Caption1 } from '@/components/typo/Typography';
 import { Colors } from '@/constants/theme';
 import { useReportConversation } from '@/components/shared/ReportConversation';
 import { useConversation } from '@/hooks/useChat';
+import { ChatMessageBubble } from '@/components/shared/ChatMessageBubble';
 import { AppImage } from '@/components/shared/AppImage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+    ActivityIndicator,
     Animated,
     FlatList,
     Keyboard,
@@ -37,6 +39,7 @@ export default function HostChatScreen() {
         setInputText,
         send,
         sendAttachment,
+        isUploading,
     } = useConversation(conversationId);
 
     const { openReport, reportModal } = useReportConversation(
@@ -134,30 +137,11 @@ export default function HostChatScreen() {
                         flatListRef.current?.scrollToEnd({ animated: false })
                     }
                     renderItem={({ item, index }) => (
-                        <View>
-                            {shouldShowTime(index) && (
-                                <Caption3
-                                    color={"#989898"}
-                                    align="center"
-                                    style={styles.timeLabel}
-                                >
-                                    — {item.time} —
-                                </Caption3>
-                            )}
-                            <View style={[
-                                styles.bubbleRow,
-                                item.sender === 'me' ? styles.bubbleRowMe : styles.bubbleRowOther,
-                            ]}>
-                                <View style={[
-                                    styles.bubble,
-                                    item.sender === 'me' ? styles.bubbleMe : styles.bubbleOther,
-                                ]}>
-                                    <Caption1 color={item.sender === 'me' ? Colors.TEXT_WHITE : Colors.PRIMARY_TEXT}>
-                                        {item.text}
-                                    </Caption1>
-                                </View>
-                            </View>
-                        </View>
+                        <ChatMessageBubble
+                            item={item}
+                            showTime={shouldShowTime(index)}
+                            timeColor="#989898"
+                        />
                     )}
                 />
 
@@ -175,9 +159,18 @@ export default function HostChatScreen() {
                             placeholderTextColor={Colors.PLACEHOLDER_TEXT}
                             multiline
                         />
-                        <Pressable onPress={sendAttachment} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                            <PlusCircleIcon size={24} color={Colors.TEXT_COLOR} />
-                        </Pressable>
+                        {isUploading ? (
+                            <ActivityIndicator size="small" color={Colors.TEXT_COLOR} />
+                        ) : (
+                            <Pressable
+                                onPress={sendAttachment}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                accessibilityRole="button"
+                                accessibilityLabel={t("Send a photo")}
+                            >
+                                <PlusCircleIcon size={24} color={Colors.TEXT_COLOR} />
+                            </Pressable>
+                        )}
                     </View>
                     <Pressable
                         style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
@@ -229,26 +222,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: wp(16),
         paddingTop: hp(16),
         gap: hp(4),
-    },
-    timeLabel: { marginVertical: hp(12) },
-    bubbleRow: { flexDirection: 'row', marginBottom: hp(8) },
-    bubbleRowMe: { justifyContent: 'flex-end' },
-    bubbleRowOther: { justifyContent: 'flex-start' },
-    bubble: {
-        maxWidth: '75%',
-        borderRadius: wp(24),
-        paddingHorizontal: wp(14),
-        paddingVertical: hp(10),
-    },
-    bubbleMe: {
-        backgroundColor: '#636363',
-        borderBottomRightRadius: wp(2),
-    },
-    bubbleOther: {
-        backgroundColor: Colors.INPUT_BACKGROUND,
-        borderTopLeftRadius: wp(4),
-        borderWidth: 1,
-        borderColor: Colors.BORDER_COLOR,
     },
 
     // ── Input bar ─────────────────────────────────────────────────────────────
